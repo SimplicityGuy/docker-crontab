@@ -1,5 +1,5 @@
 #hadolint ignore=DL3007
-FROM alpine:latest as builder
+FROM alpine:latest AS builder
 
 LABEL org.opencontainers.image.title="crontab builder" \
       org.opencontainers.image.description="crontab builder" \
@@ -23,7 +23,7 @@ RUN apk update --quiet && \
     upx --brute rq
 
 #hadolint ignore=DL3007
-FROM docker:latest as release
+FROM docker:latest AS release
 
 LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.description="A docker job scheduler (aka crontab for docker)." \
