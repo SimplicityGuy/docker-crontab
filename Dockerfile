@@ -51,6 +51,8 @@ RUN apk update --quiet && \
     rm -rf /etc/periodic /etc/crontabs/root && \
     adduser -S docker -D
 
+USER docker
+
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /
 
