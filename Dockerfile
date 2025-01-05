@@ -48,10 +48,8 @@ RUN apk update --quiet && \
         wget && \
     rm /var/cache/apk/* && \
     mkdir -p ${HOME_DIR}/jobs && \
-    mkdir -p /var/log/crontab && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    adduser -S docker -D && \
-    chmod u=rwx,go=rw /var/log/crontab
+    adduser -S docker -D
 
 USER docker
 

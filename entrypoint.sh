@@ -4,12 +4,10 @@ set -e
 
 DOCKER_SOCK=/var/run/docker.sock
 CRONTAB_FILE=/etc/crontabs/docker
-LOG_DIR=/var/log/crontab
 
 if [ -z "${HOME_DIR}" ] && [ -n "${TEST_MODE}" ]; then
     HOME_DIR=/tmp/crontab-docker-testing
     CRONTAB_FILE=${HOME_DIR}/test
-    LOG_DIR=${HOME_DIR}/crontab
 elif [ -z "${HOME_DIR}" ]; then
     echo "HOME_DIR not set."
     exit 1
@@ -20,12 +18,6 @@ mkdir -p "${HOME_DIR}"/jobs
 
 if [ -z "${DOCKER_HOST}" ] && [ -a "${DOCKER_PORT_2375_TCP}" ]; then
     export DOCKER_HOST="tcp://docker:2375"
-fi
-
-if [ "${LOG_FILE}" == "" ]; then
-    LOG_FILE=${LOG_DIR}/jobs.log
-    mkdir -p "${LOG_DIR}"
-    touch "${LOG_FILE}"
 fi
 
 normalize_config() {
