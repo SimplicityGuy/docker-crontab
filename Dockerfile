@@ -48,11 +48,7 @@ RUN apk update --quiet && \
         wget && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    adduser -S docker -D && \
-    mkdir -p ${HOME_DIR}/jobs && \
-    chown -R docker:docker ${HOME_DIR}
-
-USER docker
+    mkdir -p ${HOME_DIR}/jobs
 
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /
