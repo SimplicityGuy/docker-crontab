@@ -47,9 +47,10 @@ RUN apk update --quiet && \
         tini \
         wget && \
     rm /var/cache/apk/* && \
-    mkdir -p ${HOME_DIR}/jobs && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    adduser -S docker -D
+    adduser -S docker -D && \
+    mkdir -p ${HOME_DIR}/jobs && \
+    chown -R docker:docker ${HOME_DIR}
 
 USER docker
 
