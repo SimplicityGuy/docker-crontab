@@ -23,7 +23,7 @@ RUN apk update --quiet && \
     upx --brute rq
 
 #hadolint ignore=DL3007
-FROM docker:dind-rootless AS release
+FROM docker:latest AS release
 
 LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.description="A docker job scheduler (aka crontab for docker)." \
@@ -48,12 +48,16 @@ RUN apk update --quiet && \
         wget && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    mkdir -p ${HOME_DIR}/jobs
+    adduser -S docker -D && \
+    mkdir -p ${HOME_DIR}/jobs && \
+    chown -R docker:root ${HOME_DIR}
+
+USER docker
 
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /opt
 
-ENTRYPOINT ["docker-entrypoint.sh", "/sbin/tini", "--", "/opt/entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
