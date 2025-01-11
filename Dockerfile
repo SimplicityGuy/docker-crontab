@@ -59,7 +59,7 @@ USER docker
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /opt
 
-ENTRYPOINT ["/usr/bin/gosu", "docker:docker", "/sbin/tini", "--", "/opt/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/gosu", "docker", "/sbin/tini", "--", "/opt/entrypoint.sh"]
 
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
