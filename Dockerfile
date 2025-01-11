@@ -23,7 +23,7 @@ RUN apk update --quiet && \
     upx --brute rq
 
 #hadolint ignore=DL3007
-FROM docker:latest AS release
+FROM docker:dind-rootless AS release
 
 LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.description="A docker job scheduler (aka crontab for docker)." \
@@ -51,11 +51,11 @@ RUN apk update --quiet && \
     mkdir -p ${HOME_DIR}/jobs
 
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
-COPY entrypoint.sh /
+COPY entrypoint.sh /opt
 
-ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
+ENTRYPOINT ["docker-entrypoint.sh", "/sbin/tini", "--", "/opt/entrypoint.sh"]
 
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
 
-CMD ["crond", "-f", "-d", "6", "-c", "/etc/crontabs"]
+CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs"]
