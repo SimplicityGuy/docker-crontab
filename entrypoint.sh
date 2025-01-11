@@ -2,7 +2,6 @@
 
 set -e
 
-DOCKER_SOCK=/var/run/docker.sock
 CRONTAB_FILE=/etc/crontabs/docker
 
 if [ -z "${HOME_DIR}" ] && [ -n "${TEST_MODE}" ]; then
@@ -33,27 +32,6 @@ normalize_config() {
     fi
 
     jq -S -r '."~~shared-settings" as $shared | del(."~~shared-settings") | to_entries | map_values(.value + { name: .key } + $shared)' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
-}
-
-ensure_docker_socket_accessible() {
-    if ! grep -q "^docker:" /etc/group; then
-        # Ensure 'docker' user has permissions for docker socket (without changing permissions).
-        DOCKER_GID=$(stat -c '%g' ${DOCKER_SOCK})
-        if [ "${DOCKER_GID}" != "0" ]; then
-            if ! grep -qE "^[^:]+:[^:]+:${DOCKER_GID}:" /etc/group; then
-                # No group with such gid exists - create group 'docker'.
-                addgroup -g "${DOCKER_GID}" docker
-                adduser docker docker
-            else
-                # Group with such gid exists - add user 'docker' to this group.
-                DOCKER_GROUP_NAME=$(getent group "${DOCKER_GID}" | awk -F':' '{{ print $1 }}')
-                adduser docker "${DOCKER_GROUP_NAME}"
-            fi
-        else
-            # Docker socket belongs to 'root' group - add user 'docker' to this group.
-            adduser docker root
-        fi
-    fi
 }
 
 slugify() {
@@ -256,8 +234,5 @@ start_app() {
     exec "${@}"
 }
 
-if [ -z "${TEST_MODE}" ]; then
-    ensure_docker_socket_accessible
-fi
 printf "✨ starting crontab container ✨\n"
 start_app "${@}"
