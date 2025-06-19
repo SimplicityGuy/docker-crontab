@@ -7,7 +7,13 @@ services:
     command: "sh -c 'while :; do sleep 1; done'"
 
   crontab:
-    build: .
+    build:
+      context: .
+      args:
+        # Set this to match your host's docker group ID
+        # You can find it with: getent group docker | cut -d: -f3
+        # Or alternatively: stat -c '%g' /var/run/docker.sock
+        DOCKER_GID: 999
     restart: always
     volumes:
      - "/var/run/docker.sock:/var/run/docker.sock:ro"

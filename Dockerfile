@@ -33,6 +33,9 @@ LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.created="$(date +'%Y-%m-%d')" \
       org.opencontainers.image.base.name="docker.io/library/docker"
 
+# Build argument for docker group ID, default to 999 which is common
+ARG DOCKER_GID=999
+
 ENV HOME_DIR=/opt/crontab
 
 #hadolint ignore=DL3018
@@ -45,21 +48,23 @@ RUN apk update --quiet && \
         gettext \
         jq \
         tini \
-        wget && \
-    apk add --quiet --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing \
-        gosu && \
+        wget \
+        shadow && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    adduser -S docker -D && \
+    # Create docker group with same GID as host docker group
+    addgroup -g ${DOCKER_GID} docker && \
+    # Create docker user and add to docker group
+    adduser -S docker -D -G docker && \
     mkdir -p ${HOME_DIR}/jobs && \
-    chown -R docker:root ${HOME_DIR}
+    chown -R docker:docker ${HOME_DIR}
 
 USER docker
 
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /opt
 
-ENTRYPOINT ["/usr/bin/gosu", "docker", "/sbin/tini", "--", "/opt/entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1

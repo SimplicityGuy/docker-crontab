@@ -58,6 +58,24 @@ See [`config-samples`](config-samples) for examples.
 
 ## How to use
 
+### Docker Group ID Configuration
+
+This container needs to access the Docker socket to manage other containers. To do this, the `docker` user inside the container must have the same group ID (GID) as the `docker` group on the host system.
+
+By default, the Dockerfile uses GID 999, which is common for the `docker` group on many systems. If your host system uses a different GID, you need to specify it during the build:
+
+```bash
+# Find your host's docker group ID
+getent group docker | cut -d: -f3
+# Or alternatively
+stat -c '%g' /var/run/docker.sock
+
+# Then build with the correct GID
+docker build --build-arg DOCKER_GID=<your_docker_gid> -t crontab .
+```
+
+If you encounter the error `failed switching to "docker": operation not permitted`, it means the GIDs don't match. Rebuild the image with the correct GID.
+
 ### Command Line
 
 ```bash
