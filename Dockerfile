@@ -38,6 +38,9 @@ ARG DOCKER_GID=999
 
 ENV HOME_DIR=/opt/crontab
 
+# Set shell with pipefail option to ensure pipe failures are caught
+SHELL ["/bin/ash", "-o", "pipefail", "-c"]
+
 #hadolint ignore=DL3018
 RUN apk update --quiet && \
     apk upgrade --quiet && \
@@ -52,8 +55,10 @@ RUN apk update --quiet && \
         shadow && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
-    # Create docker group with same GID as host docker group
-    addgroup -g ${DOCKER_GID} docker && \
+    # Remove docker group if it exists
+    getent group docker > /dev/null && delgroup docker || true && \
+    # Check if GID is in use, if so use a different one
+    (getent group | grep -q ":${DOCKER_GID}:" && addgroup docker || addgroup -g ${DOCKER_GID} docker) && \
     # Create docker user and add to docker group
     adduser -S docker -D -G docker && \
     mkdir -p ${HOME_DIR}/jobs && \
