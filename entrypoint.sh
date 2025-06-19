@@ -14,6 +14,8 @@ fi
 
 # Ensure dir exist - in case of volume mapping.
 mkdir -p "${HOME_DIR}"/jobs
+# Ensure proper permissions for volume-mounted directories
+chown -R docker:docker "${HOME_DIR}"
 
 if [ -z "${DOCKER_HOST}" ] && [ -a "${DOCKER_PORT_2375_TCP}" ]; then
     export DOCKER_HOST="tcp://docker:2375"
@@ -231,7 +233,13 @@ start_app() {
         build_crontab
     fi
     printf "%s\n" "${@}"
-    exec "${@}"
+
+    # Run the command as the docker user
+    if [ "$(id -u)" = "0" ]; then
+        exec su-exec docker "${@}"
+    else
+        exec "${@}"
+    fi
 }
 
 printf "✨ starting crontab container ✨\n"

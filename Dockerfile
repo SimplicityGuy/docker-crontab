@@ -50,6 +50,7 @@ RUN apk update --quiet && \
         curl \
         gettext \
         jq \
+        su-exec \
         tini \
         wget \
         shadow && \
