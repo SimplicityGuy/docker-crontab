@@ -65,10 +65,10 @@ RUN apk update --quiet && \
     mkdir -p ${HOME_DIR}/jobs && \
     chown -R docker:docker ${HOME_DIR}
 
-USER docker
-
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /opt
+
+# Start as root to handle volume permissions, then drop to docker user in entrypoint
 
 ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 

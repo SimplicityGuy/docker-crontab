@@ -13,9 +13,17 @@ elif [ -z "${HOME_DIR}" ]; then
 fi
 
 # Ensure dir exist - in case of volume mapping.
-mkdir -p "${HOME_DIR}"/jobs
-# Ensure proper permissions for volume-mounted directories
-chown -R docker:docker "${HOME_DIR}"
+# This needs to run as root to set proper permissions
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p "${HOME_DIR}"/jobs
+    chown -R docker:docker "${HOME_DIR}"
+else
+    # If not root, try to create directory (may fail if permissions are wrong)
+    mkdir -p "${HOME_DIR}"/jobs 2>/dev/null || {
+        echo "Warning: Cannot create ${HOME_DIR}/jobs directory. Ensure proper volume permissions."
+        echo "Run: sudo chown -R $(id -u docker):$(id -g docker) /path/to/host/directory"
+    }
+fi
 
 if [ -z "${DOCKER_HOST}" ] && [ -a "${DOCKER_PORT_2375_TCP}" ]; then
     export DOCKER_HOST="tcp://docker:2375"
