@@ -75,4 +75,4 @@ ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
 
-CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs"]
+CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs", "-S"]
