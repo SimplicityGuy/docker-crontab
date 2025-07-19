@@ -1,4 +1,4 @@
-version: "2.1"
+version: "3.8"
 
 services:
   myapp:
@@ -17,4 +17,4 @@ services:
     restart: always
     volumes:
      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-     - "${PWD}/config-samples/config.sample.mapping.json:/opt/crontab/config.json:rw"
+     - "${PWD}/config-samples/config.sample.mapping.json:/opt/crontab/config.json:ro"

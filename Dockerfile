@@ -4,7 +4,7 @@ FROM alpine:latest AS builder
 LABEL org.opencontainers.image.title="crontab builder" \
       org.opencontainers.image.description="crontab builder" \
       org.opencontainers.image.authors="robert@simplicityguy.com" \
-      org.opencontainers.image.source="https://github.com/SimplicityGuy/alertmanager-discord/blob/main/Dockerfile" \
+      org.opencontainers.image.source="https://github.com/SimplicityGuy/docker-crontab/blob/main/Dockerfile" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.created="$(date +'%Y-%m-%d')" \
       org.opencontainers.image.base.name="docker.io/library/alpine"
@@ -75,4 +75,4 @@ ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
 
-CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs", "-s"]
+CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs"]

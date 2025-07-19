@@ -99,7 +99,7 @@ make_cmd() {
 
 parse_schedule() {
     IFS=" "
-    read -a params <<< "$@"
+    read -r -a params <<< "$@"
 
     case ${params[0]} in
         "@yearly" | "@annually")
@@ -242,8 +242,11 @@ start_app() {
     fi
     printf "%s\n" "${@}"
 
-    # Run the command as the docker user
-    if [ "$(id -u)" = "0" ]; then
+    # Run crond as root so it can switch users for cron jobs
+    # Other commands run as docker user for security
+    if [ "${1}" == "crond" ]; then
+        exec "${@}"
+    elif [ "$(id -u)" = "0" ]; then
         exec su-exec docker "${@}"
     else
         exec "${@}"
