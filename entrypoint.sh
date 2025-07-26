@@ -240,16 +240,37 @@ start_app() {
     if [ "${1}" == "crond" ]; then
         build_crontab
     fi
-    printf "%s\n" "${@}"
+
+    # Filter out invalid crond flags
+    # BusyBox crond doesn't support -s flag
+    local filtered_args=()
+    local skip_next=false
+
+    for arg in "$@"; do
+        if [ "$skip_next" = true ]; then
+            skip_next=false
+            continue
+        fi
+
+        # Skip -s flag if it appears (was used in previous versions but not supported by BusyBox)
+        if [ "$arg" = "-s" ]; then
+            echo "Warning: Skipping unsupported -s flag for BusyBox crond"
+            continue
+        fi
+
+        filtered_args+=("$arg")
+    done
+
+    printf "%s\n" "${filtered_args[@]}"
 
     # Run crond as root so it can switch users for cron jobs
     # Other commands run as docker user for security
     if [ "${1}" == "crond" ]; then
-        exec "${@}"
+        exec "${filtered_args[@]}"
     elif [ "$(id -u)" = "0" ]; then
-        exec su-exec docker "${@}"
+        exec su-exec docker "${filtered_args[@]}"
     else
-        exec "${@}"
+        exec "${filtered_args[@]}"
     fi
 }
 
