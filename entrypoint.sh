@@ -2,7 +2,7 @@
 
 set -e
 
-CRONTAB_FILE=/etc/crontabs/docker
+CRONTAB_FILE="${HOME_DIR}"/crontab
 
 if [ -z "${HOME_DIR}" ] && [ -n "${TEST_MODE}" ]; then
     HOME_DIR=/tmp/crontab-docker-testing
