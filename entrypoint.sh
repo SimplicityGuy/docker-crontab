@@ -221,6 +221,12 @@ function build_crontab() {
     printf "##### crontab generated #####\n"
     cat "${CRONTAB_FILE}"
 
+    # Install the crontab for the docker user
+    # BusyBox crond expects crontab files in /etc/crontabs/
+    mkdir -p /etc/crontabs
+    cp "${CRONTAB_FILE}" /etc/crontabs/docker
+    chmod 600 /etc/crontabs/docker
+
     printf "##### run commands with onstart #####\n"
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
         printf "%s\n" "${ONSTART_COMMAND}"
