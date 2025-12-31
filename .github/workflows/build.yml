@@ -67,9 +67,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
           sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Send notification to Discord.
-        uses: sarisia/actions-status-discord@v1.12.0
+        uses: sarisia/actions-status-discord@b8381b25576cb341b2af39926ab42c5056cc44ed # v1.15.5
         if: always()
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
