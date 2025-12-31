@@ -1,5 +1,5 @@
 ---
-name: crontab
+name: Build
 
 on:
   workflow_dispatch:
