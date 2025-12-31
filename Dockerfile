@@ -9,17 +9,42 @@ LABEL org.opencontainers.image.title="crontab builder" \
       org.opencontainers.image.created="$(date +'%Y-%m-%d')" \
       org.opencontainers.image.base.name="docker.io/library/alpine"
 
+# Platform arguments provided by Docker Buildx
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
+
 ENV RQ_VERSION=1.0.2
 WORKDIR /usr/bin/rq/
 
-#hadolint ignore=DL3018
+#hadolint ignore=DL3018,SC2086
 RUN apk update --quiet && \
     apk upgrade --quiet && \
     apk add --quiet --no-cache \
         upx && \
     rm /var/cache/apk/* && \
-    wget --quiet https://github.com/dflemstr/rq/releases/download/v${RQ_VERSION}/rq-v${RQ_VERSION}-x86_64-unknown-linux-musl.tar.gz && \
-    tar -xvf rq-v${RQ_VERSION}-x86_64-unknown-linux-musl.tar.gz && \
+    # Map Docker platform to rq release platform
+    case "${TARGETPLATFORM}" in \
+        "linux/amd64") \
+            RQ_PLATFORM="x86_64-unknown-linux-musl" \
+            ;; \
+        "linux/arm64") \
+            RQ_PLATFORM="aarch64-unknown-linux-gnu" \
+            ;; \
+        "linux/arm/v7") \
+            RQ_PLATFORM="armv7-unknown-linux-gnueabihf" \
+            ;; \
+        "linux/arm/v6") \
+            RQ_PLATFORM="arm-unknown-linux-gnueabi" \
+            ;; \
+        *) \
+            echo "Warning: Unknown platform ${TARGETPLATFORM}, defaulting to x86_64-unknown-linux-musl" && \
+            RQ_PLATFORM="x86_64-unknown-linux-musl" \
+            ;; \
+    esac && \
+    wget --quiet https://github.com/dflemstr/rq/releases/download/v${RQ_VERSION}/rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz && \
+    tar -xvf rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz && \
     upx --brute rq
 
 #hadolint ignore=DL3007
