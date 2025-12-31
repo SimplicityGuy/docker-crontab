@@ -22,8 +22,10 @@ This is `docker-crontab`, a Docker-based cron job scheduler that allows running 
   - Normalizes config files (JSON/YAML/TOML) using `rq` and `jq`
   - Processes shared settings via `~~shared-settings` key
   - Generates crontab entries and executable scripts
+  - Installs crontab files in user-writable directory (`/opt/crontab/crontabs`)
   - Supports both `image` (docker run) and `container` (docker exec) execution modes
   - Handles trigger chains and onstart commands
+  - Drops privileges to `docker` user for security
 
 ### Configuration System
 
@@ -113,12 +115,14 @@ The repository includes sample configurations in `config-samples/` for testing d
 - **"Permission denied" creating directories**: Volume mount permissions issue
 
   - Solution: Ensure host directories have correct ownership before mounting
-  - Quick fix: `sudo chown -R $(id -u):$(getent group docker | cut -d: -f3) /path/to/host/directory`
-  - Or let container create directories (it runs as root initially, then drops privileges)
+  - Quick fix: `sudo chown -R $(id -u):$(id -g) /path/to/host/directory`
+  - Or let container create directories (it runs as root initially, then drops privileges to `docker` user)
 
 - **Jobs not executing**: Check crontab generation and script permissions
 
   - Debug: Use `TEST_MODE=1` environment variable to inspect generated files
+  - Verify crontab file exists: Check `/opt/crontab/crontabs/docker` inside container
+  - Check logs: Container outputs cron job execution to stdout/stderr
 
 - **Container networking issues**: Ensure proper network configuration in `dockerargs`
 
@@ -128,7 +132,8 @@ The repository includes sample configurations in `config-samples/` for testing d
 
 - Generated scripts: `/opt/crontab/jobs/`
 - Working config: `/opt/crontab/config.working.json`
-- Crontab file: `/etc/crontabs/docker`
+- Crontab directory: `/opt/crontab/crontabs/`
+- Crontab file: `/opt/crontab/crontabs/docker`
 - Logs: Container stdout/stderr (configure external logging as needed)
 
 ## Security Considerations

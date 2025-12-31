@@ -56,23 +56,27 @@ RUN apk update --quiet && \
         shadow && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
+    # Set SUID on crontab command so it can modify crontab files
+    chmod u+s /usr/bin/crontab && \
     # Remove docker group if it exists
     getent group docker > /dev/null && delgroup docker || true && \
     # Check if GID is in use, if so use a different one
     (getent group | grep -q ":${DOCKER_GID}:" && addgroup docker || addgroup -g ${DOCKER_GID} docker) && \
     # Create docker user and add to docker group
     adduser -S docker -D -G docker && \
-    mkdir -p ${HOME_DIR}/jobs && \
+    mkdir -p ${HOME_DIR}/jobs ${HOME_DIR}/crontabs && \
     chown -R docker:docker ${HOME_DIR}
 
 COPY --from=builder /usr/bin/rq/rq /usr/local/bin
 COPY entrypoint.sh /opt
-
-# Start as root to handle volume permissions, then drop to docker user in entrypoint
 
 ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 
 HEALTHCHECK --interval=5s --timeout=3s \
     CMD ps aux | grep '[c]rond' || exit 1
 
-CMD ["crond", "-f", "-d", "7", "-c", "/etc/crontabs"]
+# Run crond with custom crontabs directory owned by docker user
+# -f: foreground mode
+# -d 7: debug level 7 (highest)
+# -c: crontabs directory
+CMD ["crond", "-f", "-d", "7", "-c", "/opt/crontab/crontabs"]

@@ -56,6 +56,27 @@ See [`config-samples`](config-samples) for examples.
 }
 ```
 
+## Architecture & Security
+
+### Security Model
+
+The container is designed with security best practices:
+
+- **Non-root execution**: Container runs as the `docker` user (not root) for security
+- **Privilege separation**: Starts as root to set up directories, then drops to `docker` user via `su-exec`
+- **Read-only Docker socket**: Docker socket is mounted read-only to prevent container escape
+- **User-writable directories**: Crontab and job files stored in `/opt/crontab/` owned by `docker` user
+- **SUID crontab**: The `crontab` command has SUID bit set for proper crontab file management
+
+### Directory Structure
+
+- `/opt/crontab/` - Main working directory (can be volume mounted)
+  - `config.json` (or `.yaml`, `.toml`) - Your configuration file
+  - `config.working.json` - Normalized configuration (auto-generated)
+  - `jobs/` - Generated shell scripts for each cron job
+  - `crontabs/` - Crontab files for BusyBox crond
+    - `docker` - Crontab file for the `docker` user
+
 ## How to use
 
 ### Docker Group ID Configuration
@@ -109,12 +130,78 @@ COPY config.json ${HOME_DIR}/
 
 ### Logrotate Dockerfile
 
+This example shows how to extend the crontab image for custom use cases:
+
 ```Dockerfile
-FROM registry.gitlab.com/simplicityguy/docker/crontab
+FROM ghcr.io/simplicityguy/crontab
 
 RUN apk add --no-cache logrotate
-RUN echo "*/5 *	* * *  /usr/sbin/logrotate /etc/logrotate.conf" >> /etc/crontabs/logrotate
 COPY logrotate.conf /etc/logrotate.conf
-
-CMD ["crond", "-f"]
+# Use the config.json approach instead of manually editing crontab files
+COPY config.json ${HOME_DIR}/
 ```
+
+## Troubleshooting
+
+### Permission Errors
+
+**Issue**: `failed switching to 'docker': operation not permitted`
+
+**Cause**: Docker group GID mismatch between host and container.
+
+**Solution**: Rebuild the image with the correct Docker group ID:
+
+```bash
+# Find your host's docker group ID
+stat -c '%g' /var/run/docker.sock
+
+# Rebuild with the correct GID
+docker build --build-arg DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) -t crontab .
+```
+
+### Jobs Not Executing
+
+**Issue**: Cron jobs defined in config but not running.
+
+**Troubleshooting steps**:
+
+1. Check if crontab file was generated:
+
+   ```bash
+   docker exec <container> cat /opt/crontab/crontabs/docker
+   ```
+
+1. Verify job scripts exist:
+
+   ```bash
+   docker exec <container> ls -la /opt/crontab/jobs/
+   ```
+
+1. Check crond is running:
+
+   ```bash
+   docker exec <container> ps aux | grep crond
+   ```
+
+1. View container logs for cron execution output:
+
+   ```bash
+   docker logs <container>
+   ```
+
+### Directory Permission Issues
+
+**Issue**: Container can't create directories when using volume mounts.
+
+**Solution**: Ensure the host directory has correct permissions before mounting:
+
+```bash
+# Create directory and set ownership
+mkdir -p /path/to/crontab
+chown -R $(id -u):$(id -g) /path/to/crontab
+
+# Then run container with volume mount
+docker run -v /path/to/crontab:/opt/crontab:rw ...
+```
+
+Alternatively, let the container create the directories on first run (it starts as root, creates directories, then drops to `docker` user).

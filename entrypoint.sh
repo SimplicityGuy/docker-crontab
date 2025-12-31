@@ -15,12 +15,15 @@ fi
 # Ensure dir exist - in case of volume mapping.
 # This needs to run as root to set proper permissions
 if [ "$(id -u)" = "0" ]; then
-    mkdir -p "${HOME_DIR}"/jobs
-    chown -R docker:docker "${HOME_DIR}"
+    mkdir -p "${HOME_DIR}"/jobs "${HOME_DIR}"/crontabs
+    # Only chown the directories we create, not the entire HOME_DIR (to avoid issues with read-only mounts)
+    chown docker:docker "${HOME_DIR}"/jobs "${HOME_DIR}"/crontabs 2>/dev/null || true
+    # Try to chown HOME_DIR itself, but ignore errors for read-only mounts
+    chown docker:docker "${HOME_DIR}" 2>/dev/null || true
 else
-    # If not root, try to create directory (may fail if permissions are wrong)
-    mkdir -p "${HOME_DIR}"/jobs 2>/dev/null || {
-        echo "Warning: Cannot create ${HOME_DIR}/jobs directory. Ensure proper volume permissions."
+    # If not root, try to create directories (may fail if permissions are wrong)
+    mkdir -p "${HOME_DIR}"/jobs "${HOME_DIR}"/crontabs 2>/dev/null || {
+        echo "Warning: Cannot create ${HOME_DIR} directories. Ensure proper volume permissions."
         echo "Run: sudo chown -R $(id -u docker):$(id -g docker) /path/to/host/directory"
     }
 fi
@@ -221,11 +224,16 @@ function build_crontab() {
     printf "##### crontab generated #####\n"
     cat "${CRONTAB_FILE}"
 
-    # Install the crontab for the docker user
-    # BusyBox crond expects crontab files in /etc/crontabs/
-    mkdir -p /etc/crontabs
-    cp "${CRONTAB_FILE}" /etc/crontabs/docker
-    chmod 600 /etc/crontabs/docker
+    # Copy crontab file to a directory owned by docker user
+    # BusyBox crond expects files in the crontabs directory to be named after the user
+    CRONTABS_DIR="${HOME_DIR}/crontabs"
+    mkdir -p "${CRONTABS_DIR}"
+    cp "${CRONTAB_FILE}" "${CRONTABS_DIR}/docker"
+    chmod 600 "${CRONTABS_DIR}/docker"
+    # Ensure ownership is correct
+    if [ "$(id -u)" = "0" ]; then
+        chown docker:docker "${CRONTABS_DIR}" "${CRONTABS_DIR}/docker"
+    fi
 
     printf "##### run commands with onstart #####\n"
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
@@ -269,11 +277,8 @@ start_app() {
 
     printf "%s\n" "${filtered_args[@]}"
 
-    # Run crond as root so it can switch users for cron jobs
-    # Other commands run as docker user for security
-    if [ "${1}" == "crond" ]; then
-        exec "${filtered_args[@]}"
-    elif [ "$(id -u)" = "0" ]; then
+    # Run as docker user for security
+    if [ "$(id -u)" = "0" ]; then
         exec su-exec docker "${filtered_args[@]}"
     else
         exec "${filtered_args[@]}"
