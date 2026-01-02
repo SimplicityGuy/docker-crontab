@@ -213,7 +213,8 @@ function build_crontab() {
         if [ "${COMMENT}" != "null" ]; then
             echo "# ${COMMENT}" >> "${CRONTAB_FILE}"
         fi
-        echo "${SCHEDULE} ${SCRIPT_PATH}" >> "${CRONTAB_FILE}"
+        # Redirect job output to container's stdout (fd/1) and stderr (fd/2)
+        echo "${SCHEDULE} ${SCRIPT_PATH} >> /proc/1/fd/1 2>> /proc/1/fd/2" >> "${CRONTAB_FILE}"
 
         ONSTART_COMMAND=$(echo "${KEY}" | jq -r '.onstart')
         if [ "${ONSTART_COMMAND}" == "true" ]; then
@@ -238,7 +239,7 @@ function build_crontab() {
     printf "##### run commands with onstart #####\n"
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
         printf "%s\n" "${ONSTART_COMMAND}"
-        ${ONSTART_COMMAND} &
+        ${ONSTART_COMMAND} >> /proc/1/fd/1 2>> /proc/1/fd/2 &
     done
 
     printf "##### cron running #####\n"
