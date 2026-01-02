@@ -17,6 +17,124 @@ A great project, don't get me wrong. It was just missing certain key enterprise 
 - Run command in a container using `container`.
 - Ability to trigger scripts in other containers on completion cron job using `trigger`.
 - Ability to share settings between cron jobs using `~~shared-settings` as a key.
+- **Web Dashboard UI** for monitoring and controlling cron jobs.
+
+## Web Dashboard
+
+The crontab container includes a built-in web dashboard for monitoring and managing your cron jobs.
+
+### Features
+
+- 📊 **Job Monitoring**: View all scheduled jobs with their current status
+- 📅 **Schedule Information**: See when jobs last ran and when they'll run next
+- 📝 **Execution History**: Browse past executions with timestamps and exit codes
+- 🔍 **Log Viewer**: View stdout and stderr output from job executions
+- ▶️ **Manual Triggering**: Run jobs on-demand with a single click
+- 📈 **Dashboard Stats**: Overview of total jobs, failures, and recent activity
+- 🔄 **Auto-Refresh**: Dashboard automatically updates every 30 seconds
+
+### Accessing the Web UI
+
+The web dashboard is available on port **8080** by default.
+
+**Docker Run:**
+
+```bash
+docker run -d \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v ./config.json:/opt/crontab/config.json:ro \
+    -v crontab-data:/opt/crontab/data \
+    -p 8080:8080 \
+    crontab
+```
+
+Then open http://localhost:8080 in your browser.
+
+**Docker Compose:**
+
+```yaml
+services:
+  crontab:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./config.json:/opt/crontab/config.json:ro"
+      - "crontab-data:/opt/crontab/data"  # Persistent database
+    environment:
+      - WEB_UI_PORT=8080
+      - JOB_HISTORY_RETENTION_DAYS=30
+      - JOB_HISTORY_RETENTION_COUNT=1000
+
+volumes:
+  crontab-data:
+```
+
+### Configuration
+
+Configure the web UI using environment variables:
+
+| Variable                      | Default | Description                               |
+| ----------------------------- | ------- | ----------------------------------------- |
+| `WEB_UI_PORT`                 | `8080`  | Port for the web dashboard                |
+| `JOB_HISTORY_RETENTION_DAYS`  | `30`    | Keep execution history for this many days |
+| `JOB_HISTORY_RETENTION_COUNT` | `1000`  | Keep at least this many recent executions |
+
+### Data Persistence
+
+Job execution history is stored in a SQLite database at `/opt/crontab/data/crontab.db`. To persist this data across container restarts, mount a volume:
+
+```bash
+-v crontab-data:/opt/crontab/data
+```
+
+### Health Check
+
+The web UI includes a health check endpoint at `/api/health`:
+
+```bash
+curl http://localhost:8080/api/health
+```
+
+Response:
+
+```json
+{
+  "status": "healthy",
+  "crond_running": true,
+  "database_accessible": true,
+  "uptime_seconds": 86400
+}
+```
+
+### API Endpoints
+
+The dashboard exposes a REST API for programmatic access:
+
+- `GET /api/jobs` - List all jobs
+- `GET /api/executions/<job_name>` - Get execution history for a job
+- `POST /api/trigger/<job_name>` - Manually trigger a job
+- `GET /api/stats` - Get dashboard statistics
+- `GET /api/health` - Health check
+
+### Security Considerations
+
+The web UI does **not** include authentication by default. For production deployments:
+
+1. **Reverse Proxy**: Use a reverse proxy (nginx, Traefik) with authentication
+1. **Network Isolation**: Run on a private network, not exposed to the internet
+1. **Firewall Rules**: Restrict access to trusted IP addresses
+
+Example nginx reverse proxy with basic auth:
+
+```nginx
+location /crontab/ {
+    auth_basic "Crontab Dashboard";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    proxy_pass http://crontab:8080/;
+}
+```
 
 ## Config file
 

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Crontab Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🕐 Docker Crontab Dashboard</h1>
+            <div id="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-label">Total Jobs</span>
+                    <span class="stat-value" id="total-jobs">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Active</span>
+                    <span class="stat-value" id="active-jobs">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Recent Failures</span>
+                    <span class="stat-value" id="recent-failures">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Last 24h Executions</span>
+                    <span class="stat-value" id="last-24h-executions">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Auto-Refresh</span>
+                    <span class="stat-value" id="refresh-status">30s</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="jobs-list">
+            <div class="section-header">
+                <h2>Scheduled Jobs</h2>
+                <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
+            </div>
+            <div id="jobs-container">
+                <div class="loading">Loading jobs...</div>
+            </div>
+        </section>
+
+        <section id="execution-history" class="hidden">
+            <div class="section-header">
+                <h2>Execution History: <span id="current-job-name"></span></h2>
+                <button id="back-to-jobs" class="btn btn-secondary">← Back to Jobs</button>
+            </div>
+            <div id="history-container">
+                <div class="loading">Loading history...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Log Viewer Modal -->
+    <div id="log-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Job Execution Logs</h3>
+                <button id="close-modal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="log-info">
+                    <div><strong>Job:</strong> <span id="log-job-name"></span></div>
+                    <div><strong>Started:</strong> <span id="log-start-time"></span></div>
+                    <div><strong>Duration:</strong> <span id="log-duration"></span></div>
+                    <div><strong>Exit Code:</strong> <span id="log-exit-code"></span></div>
+                </div>
+                <div class="log-tabs">
+                    <button class="tab-btn active" data-tab="stdout">STDOUT</button>
+                    <button class="tab-btn" data-tab="stderr">STDERR</button>
+                </div>
+                <div class="log-content">
+                    <pre id="log-stdout" class="log-pane active"></pre>
+                    <pre id="log-stderr" class="log-pane hidden"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Docker Crontab Web UI v1.0 | <a href="/api/health" target="_blank">Health Check</a></p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

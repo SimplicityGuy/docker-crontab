@@ -15,6 +15,16 @@ services:
         # Or alternatively: stat -c '%g' /var/run/docker.sock
         DOCKER_GID: 999
     restart: always
+    ports:
+      - "8080:8080"
     volumes:
      - "/var/run/docker.sock:/var/run/docker.sock:ro"
      - "${PWD}/config-samples/config.sample.mapping.json:/opt/crontab/config.json:ro"
+     - "crontab-data:/opt/crontab/data"
+    environment:
+      - WEB_UI_PORT=8080
+      - JOB_HISTORY_RETENTION_DAYS=30
+      - JOB_HISTORY_RETENTION_COUNT=1000
+
+volumes:
+  crontab-data:
