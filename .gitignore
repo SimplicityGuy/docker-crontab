@@ -8,3 +8,6 @@ config.working.json
 
 jobs/
 projects/
+
+# Backup files created by update script
+*.backup-*
