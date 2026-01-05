@@ -242,19 +242,27 @@ update_github_actions() {
 
     local workflow_file="$PROJECT_ROOT/.github/workflows/build.yml"
 
-    # Define actions to update as space-separated pairs: "repo:current_version"
+    # Define actions to update (just the repo names)
     local actions=(
-        "actions/checkout:v4"
-        "docker/login-action:v3"
-        "docker/metadata-action:v5"
-        "docker/setup-qemu-action:v3"
-        "docker/setup-buildx-action:v3"
-        "docker/build-push-action:v6"
+        "actions/checkout"
+        "docker/login-action"
+        "docker/metadata-action"
+        "docker/setup-qemu-action"
+        "docker/setup-buildx-action"
+        "docker/build-push-action"
     )
 
-    for action in "${actions[@]}"; do
-        local repo="${action%%:*}"
-        local current_version="${action##*:}"
+    for repo in "${actions[@]}"; do
+        # Extract current version from workflow file
+        local current_version
+        local escaped_repo="${repo//\//\\/}"
+        current_version=$(grep -E "uses: ${repo}@v[0-9]+" "$workflow_file" | head -1 | sed -E "s/.*${escaped_repo}@(v[0-9]+).*/\1/")
+
+        if [[ -z "$current_version" ]]; then
+            log_warning "Could not find current version for $repo in workflow file"
+            continue
+        fi
+
         local latest_version
         latest_version=$(get_latest_action_version "$repo")
 
