@@ -190,8 +190,33 @@ function build_crontab() {
             echo "#\!/usr/bin/env bash"
             echo "set -e"
             echo ""
+            echo "JOB_NAME=\"${SCRIPT_NAME}\""
+            echo "TIMESTAMP=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "PID=\$\$"
+            echo ""
+            echo "# Log job start to database"
+            echo "python3 /opt/crontab/webapp/db_logger.py start \"\${JOB_NAME}\" \"\${TIMESTAMP}\" \"cron\" \"\${PID}\" 2>&1 || true"
+            echo ""
+            echo "# Capture output to temp files"
+            echo "STDOUT_FILE=\"/tmp/job-\${JOB_NAME}-\$\$.stdout\""
+            echo "STDERR_FILE=\"/tmp/job-\${JOB_NAME}-\$\$.stderr\""
+            echo ""
             echo "echo \"start cron job __${SCRIPT_NAME}__\""
-            echo "${CRON_COMMAND}"
+            echo "set +e"
+            echo "${CRON_COMMAND} > \"\${STDOUT_FILE}\" 2> \"\${STDERR_FILE}\""
+            echo "EXIT_CODE=\$?"
+            echo "set -e"
+            echo ""
+            echo "# Log job completion to database"
+            echo "END_TIMESTAMP=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "python3 /opt/crontab/webapp/db_logger.py end \"\${JOB_NAME}\" \"\${END_TIMESTAMP}\" \"\${EXIT_CODE}\" \"\${STDOUT_FILE}\" \"\${STDERR_FILE}\" 2>&1 || true"
+            echo ""
+            echo "# Output to container logs"
+            echo "cat \"\${STDOUT_FILE}\" 2>/dev/null || true"
+            echo "cat \"\${STDERR_FILE}\" >&2 2>/dev/null || true"
+            echo ""
+            echo "# Clean up temp files"
+            echo "rm -f \"\${STDOUT_FILE}\" \"\${STDERR_FILE}\""
         }  > "${SCRIPT_PATH}"
 
         TRIGGER=$(echo "${KEY}" | jq -r '.trigger')
@@ -245,6 +270,18 @@ function build_crontab() {
     printf "##### cron running #####\n"
 }
 
+init_webapp() {
+    printf "##### initializing web app #####\n"
+
+    # Initialize database schema
+    python3 /opt/crontab/webapp/init_db.py
+
+    # Sync jobs from config to database
+    python3 /opt/crontab/webapp/sync_jobs.py "${CONFIG}"
+
+    printf "##### web app initialized #####\n"
+}
+
 start_app() {
     normalize_config
     export CONFIG=${HOME_DIR}/config.working.json
@@ -254,6 +291,16 @@ start_app() {
     fi
     if [ "${1}" == "crond" ]; then
         build_crontab
+        init_webapp
+    fi
+
+    # Use supervisord to manage crond and Flask if we're starting crond
+    if [ "${1}" == "crond" ]; then
+        if [ "$(id -u)" = "0" ]; then
+            exec su-exec docker supervisord -c /opt/crontab/supervisord.conf
+        else
+            exec supervisord -c /opt/crontab/supervisord.conf
+        fi
     fi
 
     # Filter out invalid crond flags
