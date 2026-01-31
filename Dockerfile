@@ -48,7 +48,7 @@ RUN apk update --quiet && \
     upx --brute rq
 
 #hadolint ignore=DL3007
-FROM docker:29.1.3-dind-alpine3.23 AS release
+FROM docker:29.2.0-dind-alpine3.23 AS release
 
 LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.description="A docker job scheduler (aka crontab for docker)." \
