@@ -74,7 +74,7 @@ make_image_cmd() {
 
     COMMAND=$(echo "${1}" | jq -r .command)
 
-    echo "docker run ${DOCKERARGS} ${IMAGE} ${COMMAND}"
+    echo "docker run ${DOCKERARGS} \"${IMAGE}\" ${COMMAND}"
 }
 
 make_container_cmd() {
@@ -87,7 +87,7 @@ make_container_cmd() {
     COMMAND=$(echo "${1}" | jq -r .command )
     if [ "${COMMAND}" == "null" ]; then return; fi
 
-    echo "docker exec ${DOCKERARGS} ${CONTAINER} ${COMMAND}"
+    echo "docker exec ${DOCKERARGS} \"${CONTAINER}\" ${COMMAND}"
 }
 
 make_cmd() {
@@ -230,6 +230,7 @@ function build_crontab() {
     CRONTABS_DIR="${HOME_DIR}/crontabs"
     mkdir -p "${CRONTABS_DIR}"
     cp "${CRONTAB_FILE}" "${CRONTABS_DIR}/docker"
+    chmod 700 "${CRONTABS_DIR}"
     chmod 600 "${CRONTABS_DIR}/docker"
     # Ensure ownership is correct
     if [ "$(id -u)" = "0" ]; then
@@ -239,7 +240,7 @@ function build_crontab() {
     printf "##### run commands with onstart #####\n"
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
         printf "%s\n" "${ONSTART_COMMAND}"
-        ${ONSTART_COMMAND} 2>&1 &
+        "${ONSTART_COMMAND}" 2>&1 &
     done
 
     printf "##### cron running #####\n"

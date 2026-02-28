@@ -1,4 +1,3 @@
-#hadolint ignore=DL3007
 FROM alpine:3.23 AS builder
 
 LABEL org.opencontainers.image.title="crontab builder" \
@@ -18,7 +17,7 @@ ARG TARGETVARIANT
 ENV RQ_VERSION=1.0.2
 WORKDIR /usr/bin/rq/
 
-#hadolint ignore=DL3018,SC2086
+#hadolint ignore=DL3018
 RUN apk update --quiet && \
     apk upgrade --quiet && \
     apk add --quiet --no-cache \
@@ -43,11 +42,10 @@ RUN apk update --quiet && \
             RQ_PLATFORM="x86_64-unknown-linux-musl" \
             ;; \
     esac && \
-    wget --quiet https://github.com/dflemstr/rq/releases/download/v${RQ_VERSION}/rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz && \
-    tar -xvf rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz && \
+    wget --quiet "https://github.com/dflemstr/rq/releases/download/v${RQ_VERSION}/rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" && \
+    tar -xvf "rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" && \
     upx --brute rq
 
-#hadolint ignore=DL3007
 FROM docker:29.1.3-dind-alpine3.23 AS release
 
 LABEL org.opencontainers.image.title="crontab" \
