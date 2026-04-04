@@ -172,7 +172,7 @@ function build_crontab() {
 
         SCHEDULE=$(echo "${KEY}" | jq -r '.schedule')
         if [ "${SCHEDULE}" == "null" ]; then
-            echo "'schedule' missing: '${KEY}"
+            echo "'schedule' missing: '${KEY}'"
             continue
         fi
         if ! SCHEDULE=$(parse_schedule "${SCHEDULE}"); then
@@ -250,6 +250,9 @@ function build_crontab() {
             ONSTART+=("${SCRIPT_PATH}")
         fi
     done < <(jq -r '. | keys[]' "${CONFIG}")
+
+    # Ensure crontab file exists even if no valid jobs were found
+    touch "${CRONTAB_FILE}"
 
     printf "##### crontab generated #####\n"
     cat "${CRONTAB_FILE}"
