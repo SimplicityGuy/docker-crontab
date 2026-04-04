@@ -2,14 +2,14 @@
 
 set -e
 
-CRONTAB_FILE="${HOME_DIR}"/crontab
-
 if [ -z "${HOME_DIR}" ] && [ -n "${TEST_MODE}" ]; then
     HOME_DIR=/tmp/crontab-docker-testing
     CRONTAB_FILE=${HOME_DIR}/test
 elif [ -z "${HOME_DIR}" ]; then
     echo "HOME_DIR not set."
     exit 1
+else
+    CRONTAB_FILE="${HOME_DIR}/crontab"
 fi
 
 # Ensure dir exist - in case of volume mapping.
@@ -28,7 +28,7 @@ else
     }
 fi
 
-if [ -z "${DOCKER_HOST}" ] && [ -a "${DOCKER_PORT_2375_TCP}" ]; then
+if [ -z "${DOCKER_HOST}" ] && [ -n "${DOCKER_PORT_2375_TCP}" ]; then
     export DOCKER_HOST="tcp://docker:2375"
 fi
 
@@ -42,9 +42,13 @@ normalize_config() {
         JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yml)")"
     elif [ -f "${HOME_DIR}/config.yaml" ]; then
         JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yaml)")"
+    else
+        echo "Warning: No config file found in ${HOME_DIR}. Checked config.json, config.toml, config.yml, config.yaml"
     fi
 
-    jq -S -r '."~~shared-settings" as $shared | del(."~~shared-settings") | to_entries | map_values(.value + { name: .key } + $shared)' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
+    jq -S -r 'if type == "array" then .
+    else (."~~shared-settings" // {}) as $shared | del(."~~shared-settings") | to_entries | map_values(.value + { name: .key } + $shared)
+    end' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
 }
 
 slugify() {
@@ -61,6 +65,10 @@ make_image_cmd() {
     VOLUMES=$(echo "${1}" | jq -r 'select(.volumes != null) | .volumes | map("--volume " + .) | join(" ")')
 
     if [ "${DOCKERARGS}" == "null" ]; then DOCKERARGS=; fi
+    # Add --rm unless already specified in dockerargs
+    if ! echo "${DOCKERARGS}" | grep -q -- '--rm'; then
+        DOCKERARGS="--rm ${DOCKERARGS}"
+    fi
     DOCKERARGS+=" "
     if [ -n "${ENVIRONMENT}" ]; then DOCKERARGS+="${ENVIRONMENT} "; fi
     if [ -n "${EXPOSE}" ]; then DOCKERARGS+="${EXPOSE} "; fi
@@ -101,8 +109,7 @@ make_cmd() {
 }
 
 parse_schedule() {
-    IFS=" "
-    read -r -a params <<< "$@"
+    IFS=" " read -r -a params <<< "$@"
 
     case ${params[0]} in
         "@yearly" | "@annually")
@@ -145,6 +152,10 @@ parse_schedule() {
 
             echo "${M} ${H} * * ${D}"
             ;;
+        "@every")
+            echo "Error: '@every' schedule is not supported by BusyBox crond. Use standard cron syntax (e.g., '*/2 * * * *' instead of '@every 2m')." >&2
+            return 1
+            ;;
         *)
             echo "${params[@]}"
             ;;
@@ -158,12 +169,12 @@ function build_crontab() {
     while read -r i ; do
         KEY=$(jq -r .["$i"] "${CONFIG}")
 
-        SCHEDULE=$(echo "${KEY}" | jq -r '.schedule' | sed 's/\*/\\*/g')
+        SCHEDULE=$(echo "${KEY}" | jq -r '.schedule')
         if [ "${SCHEDULE}" == "null" ]; then
             echo "'schedule' missing: '${KEY}"
             continue
         fi
-        SCHEDULE=$(parse_schedule "${SCHEDULE}" | sed 's/\\//g')
+        SCHEDULE=$(parse_schedule "${SCHEDULE}")
 
         COMMAND=$(echo "${KEY}" | jq -r '.command')
         if [ "${COMMAND}" == "null" ]; then
@@ -171,11 +182,11 @@ function build_crontab() {
             continue
         fi
 
-        COMMENT=$(echo "${KEY}" | jq -r '.comment')
+        COMMENT=$(echo "${KEY}" | jq -r '.comment' | tr -d '\n\r')
 
         SCRIPT_NAME=$(echo "${KEY}" | jq -r '.name')
         SCRIPT_NAME=$(slugify "${SCRIPT_NAME}")
-        if [ "${SCRIPT_NAME}" == "null" ]; then
+        if [ "${SCRIPT_NAME}" == "null" ] || [ -z "${SCRIPT_NAME}" ]; then
             SCRIPT_NAME=$(cat /proc/sys/kernel/random/uuid)
         fi
 
@@ -183,16 +194,25 @@ function build_crontab() {
 
         SCRIPT_PATH="${HOME_DIR}/jobs/${SCRIPT_NAME}.sh"
 
-        touch "${SCRIPT_PATH}"
-        chmod +x "${SCRIPT_PATH}"
+        # Detect slug collisions and append counter suffix
+        if [ -f "${SCRIPT_PATH}" ]; then
+            COLLISION_COUNT=1
+            while [ -f "${HOME_DIR}/jobs/${SCRIPT_NAME}-${COLLISION_COUNT}.sh" ]; do
+                COLLISION_COUNT=$((COLLISION_COUNT + 1))
+            done
+            SCRIPT_NAME="${SCRIPT_NAME}-${COLLISION_COUNT}"
+            SCRIPT_PATH="${HOME_DIR}/jobs/${SCRIPT_NAME}.sh"
+        fi
 
+        # Build script content in temp file, then move atomically
+        SCRIPT_TMP=$(mktemp)
         {
             echo "#\!/usr/bin/env bash"
             echo "set -e"
             echo ""
             echo "echo \"start cron job __${SCRIPT_NAME}__\""
             echo "${CRON_COMMAND}"
-        }  > "${SCRIPT_PATH}"
+        } > "${SCRIPT_TMP}"
 
         TRIGGER=$(echo "${KEY}" | jq -r '.trigger')
         if [ "${TRIGGER}" != "null" ]; then
@@ -204,11 +224,14 @@ function build_crontab() {
                     continue
                 fi
 
-                make_cmd "${TRIGGER_KEY}" >> "${SCRIPT_PATH}"
+                make_cmd "${TRIGGER_KEY}" >> "${SCRIPT_TMP}"
             done < <(echo "${KEY}" | jq -r '.trigger | keys[]')
         fi
 
-        echo "echo \"end cron job __${SCRIPT_NAME}__\"" >> "${SCRIPT_PATH}"
+        echo "echo \"end cron job __${SCRIPT_NAME}__\"" >> "${SCRIPT_TMP}"
+
+        mv "${SCRIPT_TMP}" "${SCRIPT_PATH}"
+        chmod +x "${SCRIPT_PATH}"
 
         if [ "${COMMENT}" != "null" ]; then
             echo "# ${COMMENT}" >> "${CRONTAB_FILE}"
@@ -238,9 +261,16 @@ function build_crontab() {
     fi
 
     printf "##### run commands with onstart #####\n"
+    ONSTART_PIDS=()
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
         printf "%s\n" "${ONSTART_COMMAND}"
         "${ONSTART_COMMAND}" 2>&1 &
+        ONSTART_PIDS+=($!)
+    done
+    for pid in "${ONSTART_PIDS[@]}"; do
+        if ! wait "$pid"; then
+            echo "Warning: onstart job (PID $pid) exited with non-zero status" >&2
+        fi
     done
 
     printf "##### cron running #####\n"
