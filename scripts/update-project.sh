@@ -177,13 +177,7 @@ get_latest_docker_tag() {
   local image="$1"
   local repo="${image%%:*}"
 
-  if [[ "$repo" == "alpine" ]]; then
-    curl -s "https://hub.docker.com/v2/repositories/library/alpine/tags?page_size=100" | \
-      jq -r '.results[].name' | \
-      grep -E '^[0-9]+\.[0-9]+$' | \
-      sort -V | \
-      tail -1
-  elif [[ "$repo" == "docker" ]]; then
+  if [[ "$repo" == "docker" ]]; then
     curl -s "https://hub.docker.com/v2/repositories/library/docker/tags?page_size=100&name=dind-alpine" | \
       jq -r '.results[].name' | \
       grep -E '^[0-9]+\.[0-9]+\.[0-9]+-dind-alpine[0-9.]+$' | \
@@ -201,21 +195,7 @@ update_dockerfile() {
   local dockerfile="$PROJECT_ROOT/Dockerfile"
   backup_file "$dockerfile"
 
-  # Update Alpine base image
-  local current_alpine
-  current_alpine=$(grep 'FROM alpine:' "$dockerfile" | head -1 | sed -E 's/.*FROM alpine:([^ ]+).*/\1/')
-  local latest_alpine
-  latest_alpine=$(get_latest_docker_tag "alpine")
-
-  if [[ -n "$latest_alpine" ]] && [[ "$current_alpine" != "$latest_alpine" ]]; then
-    print_info "Alpine: $current_alpine → $latest_alpine"
-    update_in_file "$dockerfile" "FROM alpine:${current_alpine}" "FROM alpine:${latest_alpine}" "Alpine base image"
-    add_to_summary "Alpine: $current_alpine → $latest_alpine"
-  else
-    print_success "Alpine is up to date: $current_alpine"
-  fi
-
-  # Update Docker dind image
+  # Update Docker dind image (includes Alpine version)
   local current_docker
   current_docker=$(grep 'FROM docker:' "$dockerfile" | head -1 | sed -E 's/.*FROM docker:([^ ]+).*/\1/')
   local latest_docker

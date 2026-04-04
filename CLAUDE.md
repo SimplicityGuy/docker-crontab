@@ -140,7 +140,7 @@ The repository includes sample configurations in `config-samples/` for testing d
 - Container runs as non-root `docker` user for security
 - Docker socket access is read-only to prevent container escape
 - Uses `su-exec` for privilege dropping instead of `sudo`
-- Multi-stage build minimizes attack surface
+- Single-stage build minimizes attack surface
 - SBOM and provenance generation enabled in CI/CD
 
 ## CI/CD
@@ -148,7 +148,7 @@ The repository includes sample configurations in `config-samples/` for testing d
 GitHub Actions workflow (`.github/workflows/build.yml`):
 
 - Builds on push to main and PRs
-- Multi-platform support (linux/amd64)
+- Multi-platform support (linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6)
 - Publishes to GitHub Container Registry (`ghcr.io`)
 - Includes security scanning with SBOM and provenance
 - Discord notifications for build status

@@ -24,37 +24,29 @@ jobs:
       - name: Check for base image updates.
         id: check-updates
         run: |
-          # Get current base images from Dockerfile
-          BUILDER_IMAGE=$(grep "^FROM alpine:" Dockerfile | grep "AS builder" | awk '{print $2}')
-          RELEASE_IMAGE=$(grep "^FROM docker:" Dockerfile | grep "AS release" | awk '{print $2}')
+          # Get current base image from Dockerfile
+          BASE_IMAGE=$(grep "^FROM docker:" Dockerfile | head -1 | awk '{print $2}')
 
-          echo "Current builder image: $BUILDER_IMAGE"
-          echo "Current release image: $RELEASE_IMAGE"
+          echo "Current base image: $BASE_IMAGE"
 
-          if [ -z "$BUILDER_IMAGE" ] || [ -z "$RELEASE_IMAGE" ]; then
-            echo "Error: Could not extract base images from Dockerfile"
+          if [ -z "$BASE_IMAGE" ]; then
+            echo "Error: Could not extract base image from Dockerfile"
             exit 1
           fi
 
-          # Get current local digests (from last build)
-          BUILDER_LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$BUILDER_IMAGE" 2>/dev/null | grep -oP 'sha256:[a-f0-9]{64}' || echo "")
-          RELEASE_LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$RELEASE_IMAGE" 2>/dev/null | grep -oP 'sha256:[a-f0-9]{64}' || echo "")
+          # Get current local digest (from last build)
+          LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" 2>/dev/null | grep -oP 'sha256:[a-f0-9]{64}' || echo "")
 
-          # Pull latest versions
-          docker pull "$BUILDER_IMAGE" --quiet
-          docker pull "$RELEASE_IMAGE" --quiet
+          # Pull latest version
+          docker pull "$BASE_IMAGE" --quiet
 
-          # Get remote digests after pull
-          BUILDER_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$BUILDER_IMAGE" | grep -oP 'sha256:[a-f0-9]{64}' | head -1)
-          RELEASE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$RELEASE_IMAGE" | grep -oP 'sha256:[a-f0-9]{64}' | head -1)
+          # Get remote digest after pull
+          REMOTE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | grep -oP 'sha256:[a-f0-9]{64}' | head -1)
 
-          echo "builder_digest=$BUILDER_DIGEST" >> $GITHUB_OUTPUT
-          echo "release_digest=$RELEASE_DIGEST" >> $GITHUB_OUTPUT
+          echo "base_digest=$REMOTE_DIGEST" >> $GITHUB_OUTPUT
 
-          # Check if digests changed (or if this is a first run with no local digest)
-          if [ -z "$BUILDER_LOCAL_DIGEST" ] || [ -z "$RELEASE_LOCAL_DIGEST" ] || \
-             [ "$BUILDER_DIGEST" != "$BUILDER_LOCAL_DIGEST" ] || \
-             [ "$RELEASE_DIGEST" != "$RELEASE_LOCAL_DIGEST" ]; then
+          # Check if digest changed (or if this is a first run with no local digest)
+          if [ -z "$LOCAL_DIGEST" ] || [ "$REMOTE_DIGEST" != "$LOCAL_DIGEST" ]; then
             echo "updates_available=true" >> $GITHUB_OUTPUT
           else
             echo "updates_available=false" >> $GITHUB_OUTPUT
@@ -83,8 +75,7 @@ jobs:
             This PR updates the base Docker images to their latest versions.
 
             ### Changes
-            - Builder image digest: `${{ steps.check-updates.outputs.builder_digest }}`
-            - Release image digest: `${{ steps.check-updates.outputs.release_digest }}`
+            - Base image digest: `${{ steps.check-updates.outputs.base_digest }}`
 
             ### Testing
             - Build test completed successfully
