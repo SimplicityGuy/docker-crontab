@@ -185,7 +185,7 @@ get_latest_docker_tag() {
       sort -V | \
       tail -1
   elif [[ "$repo" == "docker" ]]; then
-    curl -s "https://hub.docker.com/v2/repositories/library/docker/tags?page_size=100" | \
+    curl -s "https://hub.docker.com/v2/repositories/library/docker/tags?page_size=100&name=dind-alpine" | \
       jq -r '.results[].name' | \
       grep -E '^[0-9]+\.[0-9]+\.[0-9]+-dind-alpine[0-9.]+$' | \
       sort -V | \

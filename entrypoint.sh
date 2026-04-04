@@ -300,14 +300,8 @@ start_app() {
     # Filter out invalid crond flags
     # BusyBox crond doesn't support -s flag
     local filtered_args=()
-    local skip_next=false
 
     for arg in "$@"; do
-        if [ "$skip_next" = true ]; then
-            skip_next=false
-            continue
-        fi
-
         # Skip -s flag if it appears (was used in previous versions but not supported by BusyBox)
         if [ "$arg" = "-s" ]; then
             echo "Warning: Skipping unsupported -s flag for BusyBox crond"
