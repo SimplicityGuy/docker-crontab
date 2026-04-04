@@ -9,16 +9,16 @@
 - command: echo new
   comment: map a volume
   dockerargs: -d -v /tmp:/tmp
-  image: alpine:3.21
+  image: alpine:3.23
   schedule: '* * * * *'
 - command: sh -c 'echo hourly ${FOO}'
   comment: use an ENV from inside a container
   dockerargs: -d -e FOO=BAR
-  image: alpine:3.21
+  image: alpine:3.23
   schedule: '@hourly'
 - command: echo 2 minute
   comment: trigger every 2 min
-  image: alpine:3.21
+  image: alpine:3.23
   schedule: '*/2 * * * *'
   trigger:
   - command: echo world

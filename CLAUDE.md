@@ -10,16 +10,15 @@ This is `docker-crontab`, a Docker-based cron job scheduler that allows running 
 
 ### Core Components
 
-- **Dockerfile**: Multi-stage build using Alpine Linux base with Docker-in-Docker capability
+- **Dockerfile**: Single-stage build using Docker-in-Docker Alpine base
 
-  - Builder stage: Downloads and compresses `rq` tool for config parsing
-  - Release stage: Based on `docker:dind-alpine` with cron and Docker client
+  - Based on `docker:dind-alpine` with cron and Docker client
   - Uses `su-exec` for proper user privilege handling
   - Configurable Docker group ID via `DOCKER_GID` build arg (default: 999)
 
 - **entrypoint.sh**: Main orchestration script that:
 
-  - Normalizes config files (JSON/YAML/TOML) using `rq` and `jq`
+  - Normalizes config files (JSON/YAML/TOML) using `yq` and `jq`
   - Processes shared settings via `~~shared-settings` key
   - Generates crontab entries and executable scripts
   - Installs crontab files in user-writable directory (`/opt/crontab/crontabs`)
@@ -33,7 +32,7 @@ This is `docker-crontab`, a Docker-based cron job scheduler that allows running 
 - Config can be array or mapping (top-level keys ignored for organization)
 - Special `~~shared-settings` key for shared configuration
 - Key fields: `schedule`, `command`, `image`/`container`, `dockerargs`, `trigger`, `onstart`
-- Schedule supports standard crontab syntax plus shortcuts (@hourly, @daily, @every 2m, etc.)
+- Schedule supports standard crontab syntax plus shortcuts (@hourly, @daily/@midnight, @weekly, @monthly, @yearly/@annually, @random)
 - Additional fields: `comment`, `name`, `environment`, `expose`, `networks`, `ports`, `volumes`
 
 ### Job Execution Flow
@@ -141,7 +140,7 @@ The repository includes sample configurations in `config-samples/` for testing d
 - Container runs as non-root `docker` user for security
 - Docker socket access is read-only to prevent container escape
 - Uses `su-exec` for privilege dropping instead of `sudo`
-- Multi-stage build minimizes attack surface
+- Single-stage build minimizes attack surface
 - SBOM and provenance generation enabled in CI/CD
 
 ## CI/CD
@@ -149,7 +148,7 @@ The repository includes sample configurations in `config-samples/` for testing d
 GitHub Actions workflow (`.github/workflows/build.yml`):
 
 - Builds on push to main and PRs
-- Multi-platform support (linux/amd64)
+- Multi-platform support (linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6)
 - Publishes to GitHub Container Registry (`ghcr.io`)
 - Includes security scanning with SBOM and provenance
 - Discord notifications for build status

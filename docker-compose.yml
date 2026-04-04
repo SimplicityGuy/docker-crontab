@@ -1,10 +1,12 @@
 services:
   myapp:
-    image: alpine:3.21
+    image: alpine:3.23
     restart: always
     command: "sh -c 'while :; do sleep 1; done'"
 
   crontab:
+    depends_on:
+      - myapp
     build:
       context: .
       args:
