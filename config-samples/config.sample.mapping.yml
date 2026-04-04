@@ -11,23 +11,23 @@ map a volume:
   command: echo new
   comment: map a volume
   dockerargs: -d -v /tmp:/tmp
-  image: alpine:3.5
+  image: alpine:3.23
   schedule: '* * * * *'
 use an ENV from inside a container:
   command: sh -c 'echo hourly ${FOO}'
   comment: use an ENV from inside a container
   dockerargs: -d -e FOO=BAR
-  image: alpine:3.5
+  image: alpine:3.23
   schedule: '@hourly'
 trigger every 2 min:
   command: echo 2 minute
   comment: trigger every 2 min
-  image: alpine:3.5
-  schedule: '@every 2m'
+  image: alpine:3.23
+  schedule: '*/2 * * * *'
   trigger:
   - command: echo world
     container: crontab_myapp_1
-null:
+logrotate:
   command: /usr/sbin/logrotate /etc/logrotate.conf
   schedule: '*/5 * * * *'
 Regenerate Certificate then reload nginx:

@@ -1,8 +1,18 @@
 # crontab
 
-![crontab](https://github.com/SimplicityGuy/docker-crontab/actions/workflows/build.yml/badge.svg) ![License: MIT](https://img.shields.io/github/license/SimplicityGuy/docker-crontab) [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+<div align="center">
 
-A simple wrapper over `docker` to all complex cron job to be run in other containers.
+[![Build](https://github.com/SimplicityGuy/docker-crontab/actions/workflows/build.yml/badge.svg)](https://github.com/SimplicityGuy/docker-crontab/actions/workflows/build.yml)
+![License: MIT](https://img.shields.io/github/license/SimplicityGuy/docker-crontab)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](https://www.docker.com/)
+![Shell](https://img.shields.io/badge/shell-bash-green?logo=gnu-bash&logoColor=white)
+![Alpine](https://img.shields.io/badge/alpine-linux-0D597F?logo=alpine-linux&logoColor=white)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-powered-orange?logo=anthropic&logoColor=white)](https://claude.ai/code)
+
+</div>
+
+A simple wrapper over `docker` to allow complex cron jobs to be run in other containers.
 
 ## Why?
 
@@ -142,12 +152,17 @@ The config file can be specified in any of `json`, `toml`, or `yaml`, and can be
 
 - `name`: Human readable name that will be used as the job filename. Will be converted into a slug. Optional.
 - `comment`: Comments to be included with crontab entry. Optional.
-- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Examples: `@hourly`, `@every 1h30m`, `* * * * *`. Required.
-- `command`: Command to be run on in crontab container or docker container/image. Required.
-- `image`: Docker images name (ex `library/alpine:3.5`). Optional.
+- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Required. Supported shortcuts: `@hourly`, `@daily`/`@midnight`, `@weekly`, `@monthly`, `@yearly`/`@annually`, `@random @m @h @d`. Examples: `@hourly`, `@daily`, `*/5 * * * *`.
+- `command`: Command to be run in crontab container or docker container/image. Required.
+- `image`: Docker image name (e.g. `library/alpine:3.23`). Optional.
 - `container`: Full container name. Ignored if `image` is included. Optional.
 - `dockerargs`: Command line docker `run`/`exec` arguments for full control. Defaults to ` `.
-- `trigger`: Array of docker-crontab subset objects. Sub-set includes: `image`, `container`, `command`, `dockerargs`
+- `environment`: Array of environment variables to pass to the container (e.g. `["FOO=bar", "BAZ=qux"]`). Optional.
+- `expose`: Array of ports to expose (e.g. `["8080", "9090"]`). Optional.
+- `networks`: Array of networks to connect to (e.g. `["my_network"]`). Optional.
+- `ports`: Array of port mappings (e.g. `["8080:80"]`). Optional.
+- `volumes`: Array of volume mounts (e.g. `["data:/data", "/host/path:/container/path"]`). Optional.
+- `trigger`: Array of docker-crontab subset objects. Sub-set includes: `image`, `container`, `command`, `dockerargs`.
 - `onstart`: Run the command on `crontab` container start, set to `true`. Optional, defaults to false.
 
 See [`config-samples`](config-samples) for examples.
@@ -155,14 +170,14 @@ See [`config-samples`](config-samples) for examples.
 ```json
 {
     "logrotate": {
-        "schedule":"@every 5m",
+        "schedule":"*/5 * * * *",
         "command":"/usr/sbin/logrotate /etc/logrotate.conf"
     },
     "cert-regen": {
         "comment":"Regenerate Certificate then reload nginx",
         "schedule":"43 6,18 * * *",
         "command":"sh -c 'dehydrated --cron --out /etc/ssl --domain ${LE_DOMAIN} --challenge dns-01 --hook dehydrated-dns'",
-        "dockerargs":"--it --env-file /opt/crontab/env/letsencrypt.env",
+        "dockerargs":"-it --env-file /opt/crontab/env/letsencrypt.env",
         "volumes":["webapp_nginx_tls_cert:/etc/ssl", "webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"],
         "image":"willfarrell/letsencrypt",
         "trigger":[{
@@ -231,17 +246,17 @@ docker run -d \
 
 1. Figure out which network name used for your docker-compose containers
    - use `docker network ls` to see existing networks
-   - if your `docker-compose.yml` is in `my_dir` directory, you probably has network `my_dir_default`
+   - if your `docker-compose.yml` is in `my_dir` directory, you probably have network `my_dir_default`
    - otherwise [read the docker-compose docs](https://docs.docker.com/compose/networking/)
 1. Add `dockerargs` to your docker-crontab `config.json`
    - use `--network NETWORK_NAME` to connect new container into docker-compose network
    - use `--name NAME` to use named container
-   - e.g. `"dockerargs": "--it"`
+   - e.g. `"dockerargs": "-it"`
 
 ### Dockerfile
 
 ```Dockerfile
-FROM registry.gitlab.com/simplicityguy/docker/crontab
+FROM ghcr.io/simplicityguy/crontab
 
 COPY config.json ${HOME_DIR}/
 ```

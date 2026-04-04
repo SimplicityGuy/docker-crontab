@@ -2,14 +2,14 @@
 
 set -e
 
-CRONTAB_FILE="${HOME_DIR}"/crontab
-
 if [ -z "${HOME_DIR}" ] && [ -n "${TEST_MODE}" ]; then
     HOME_DIR=/tmp/crontab-docker-testing
     CRONTAB_FILE=${HOME_DIR}/test
 elif [ -z "${HOME_DIR}" ]; then
     echo "HOME_DIR not set."
     exit 1
+else
+    CRONTAB_FILE="${HOME_DIR}/crontab"
 fi
 
 # Ensure dir exist - in case of volume mapping.
@@ -28,7 +28,7 @@ else
     }
 fi
 
-if [ -z "${DOCKER_HOST}" ] && [ -a "${DOCKER_PORT_2375_TCP}" ]; then
+if [ -z "${DOCKER_HOST}" ] && [ -n "${DOCKER_PORT_2375_TCP}" ]; then
     export DOCKER_HOST="tcp://docker:2375"
 fi
 
@@ -37,14 +37,18 @@ normalize_config() {
     if [ -f "${HOME_DIR}/config.json" ]; then
         JSON_CONFIG="$(cat "${HOME_DIR}"/config.json)"
     elif [ -f "${HOME_DIR}/config.toml" ]; then
-        JSON_CONFIG="$(rq -t <<< "$(cat "${HOME_DIR}"/config.toml)")"
+        JSON_CONFIG="$(yq -p toml -o json < "${HOME_DIR}/config.toml")"
     elif [ -f "${HOME_DIR}/config.yml" ]; then
-        JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yml)")"
+        JSON_CONFIG="$(yq -o json < "${HOME_DIR}/config.yml")"
     elif [ -f "${HOME_DIR}/config.yaml" ]; then
-        JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yaml)")"
+        JSON_CONFIG="$(yq -o json < "${HOME_DIR}/config.yaml")"
+    else
+        echo "Warning: No config file found in ${HOME_DIR}. Checked config.json, config.toml, config.yml, config.yaml"
     fi
 
-    jq -S -r '."~~shared-settings" as $shared | del(."~~shared-settings") | to_entries | map_values(.value + { name: .key } + $shared)' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
+    jq -S -r 'if type == "array" then .
+    else (."~~shared-settings" // {}) as $shared | del(."~~shared-settings") | to_entries | map_values($shared + .value + { name: .key })
+    end' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
 }
 
 slugify() {
@@ -61,10 +65,14 @@ make_image_cmd() {
     VOLUMES=$(echo "${1}" | jq -r 'select(.volumes != null) | .volumes | map("--volume " + .) | join(" ")')
 
     if [ "${DOCKERARGS}" == "null" ]; then DOCKERARGS=; fi
+    # Add --rm unless already specified in dockerargs
+    if ! echo "${DOCKERARGS}" | grep -q -- '--rm'; then
+        DOCKERARGS="--rm ${DOCKERARGS}"
+    fi
     DOCKERARGS+=" "
     if [ -n "${ENVIRONMENT}" ]; then DOCKERARGS+="${ENVIRONMENT} "; fi
     if [ -n "${EXPOSE}" ]; then DOCKERARGS+="${EXPOSE} "; fi
-    if [ -n "${NAME}" ]; then DOCKERARGS+="--name ${NAME} "; fi
+    if [ -n "${NAME}" ]; then DOCKERARGS+="--name \"${NAME}\" "; fi
     if [ -n "${NETWORKS}" ]; then DOCKERARGS+="${NETWORKS} "; fi
     if [ -n "${PORTS}" ]; then DOCKERARGS+="${PORTS} "; fi
     if [ -n "${VOLUMES}" ]; then DOCKERARGS+="${VOLUMES} "; fi
@@ -73,8 +81,9 @@ make_image_cmd() {
     if [ "${IMAGE}" == "null" ]; then return; fi
 
     COMMAND=$(echo "${1}" | jq -r .command)
+    if [ "${COMMAND}" == "null" ]; then return; fi
 
-    echo "docker run ${DOCKERARGS} ${IMAGE} ${COMMAND}"
+    echo "docker run ${DOCKERARGS} \"${IMAGE}\" ${COMMAND}"
 }
 
 make_container_cmd() {
@@ -87,7 +96,7 @@ make_container_cmd() {
     COMMAND=$(echo "${1}" | jq -r .command )
     if [ "${COMMAND}" == "null" ]; then return; fi
 
-    echo "docker exec ${DOCKERARGS} ${CONTAINER} ${COMMAND}"
+    echo "docker exec ${DOCKERARGS} \"${CONTAINER}\" ${COMMAND}"
 }
 
 make_cmd() {
@@ -101,8 +110,7 @@ make_cmd() {
 }
 
 parse_schedule() {
-    IFS=" "
-    read -r -a params <<< "$@"
+    IFS=" " read -r -a params <<< "$@"
 
     case ${params[0]} in
         "@yearly" | "@annually")
@@ -145,6 +153,10 @@ parse_schedule() {
 
             echo "${M} ${H} * * ${D}"
             ;;
+        "@every")
+            echo "Error: '@every' schedule is not supported by BusyBox crond. Use standard cron syntax (e.g., '*/2 * * * *' instead of '@every 2m')." >&2
+            return 1
+            ;;
         *)
             echo "${params[@]}"
             ;;
@@ -155,15 +167,21 @@ function build_crontab() {
     rm -rf "${CRONTAB_FILE}"
 
     ONSTART=()
+    JOB_NAMES=()
+    JOB_SCHEDULES=()
+    JOB_ONSTART_FLAGS=()
     while read -r i ; do
         KEY=$(jq -r .["$i"] "${CONFIG}")
 
-        SCHEDULE=$(echo "${KEY}" | jq -r '.schedule' | sed 's/\*/\\*/g')
+        SCHEDULE=$(echo "${KEY}" | jq -r '.schedule')
         if [ "${SCHEDULE}" == "null" ]; then
-            echo "'schedule' missing: '${KEY}"
+            echo "'schedule' missing: '${KEY}'"
             continue
         fi
-        SCHEDULE=$(parse_schedule "${SCHEDULE}" | sed 's/\\//g')
+        if ! SCHEDULE=$(parse_schedule "${SCHEDULE}"); then
+            echo "Skipping job: unsupported schedule"
+            continue
+        fi
 
         COMMAND=$(echo "${KEY}" | jq -r '.command')
         if [ "${COMMAND}" == "null" ]; then
@@ -171,11 +189,11 @@ function build_crontab() {
             continue
         fi
 
-        COMMENT=$(echo "${KEY}" | jq -r '.comment')
+        COMMENT=$(echo "${KEY}" | jq -r '.comment' | tr -d '\n\r')
 
         SCRIPT_NAME=$(echo "${KEY}" | jq -r '.name')
         SCRIPT_NAME=$(slugify "${SCRIPT_NAME}")
-        if [ "${SCRIPT_NAME}" == "null" ]; then
+        if [ "${SCRIPT_NAME}" == "null" ] || [ -z "${SCRIPT_NAME}" ]; then
             SCRIPT_NAME=$(cat /proc/sys/kernel/random/uuid)
         fi
 
@@ -183,11 +201,21 @@ function build_crontab() {
 
         SCRIPT_PATH="${HOME_DIR}/jobs/${SCRIPT_NAME}.sh"
 
-        touch "${SCRIPT_PATH}"
-        chmod +x "${SCRIPT_PATH}"
+        # Detect slug collisions and append counter suffix
+        if [ -f "${SCRIPT_PATH}" ]; then
+            COLLISION_COUNT=1
+            while [ -f "${HOME_DIR}/jobs/${SCRIPT_NAME}-${COLLISION_COUNT}.sh" ]; do
+                COLLISION_COUNT=$((COLLISION_COUNT + 1))
+            done
+            SCRIPT_NAME="${SCRIPT_NAME}-${COLLISION_COUNT}"
+            SCRIPT_PATH="${HOME_DIR}/jobs/${SCRIPT_NAME}.sh"
+        fi
 
+        # Build script content in temp file, then move atomically
+        SCRIPT_TMP=$(mktemp)
+        trap 'rm -f "${SCRIPT_TMP}"' EXIT
         {
-            echo "#\!/usr/bin/env bash"
+            echo '#!/usr/bin/env bash'
             echo "set -e"
             echo ""
             echo "JOB_NAME=\"${SCRIPT_NAME}\""
@@ -201,7 +229,7 @@ function build_crontab() {
             echo "STDOUT_FILE=\"/tmp/job-\${JOB_NAME}-\$\$.stdout\""
             echo "STDERR_FILE=\"/tmp/job-\${JOB_NAME}-\$\$.stderr\""
             echo ""
-            echo "echo \"start cron job __${SCRIPT_NAME}__\""
+            echo "echo \"\$(date '+%Y-%m-%d %H:%M:%S') [start] ${SCRIPT_NAME}\""
             echo "set +e"
             echo "${CRON_COMMAND} > \"\${STDOUT_FILE}\" 2> \"\${STDERR_FILE}\""
             echo "EXIT_CODE=\$?"
@@ -217,7 +245,7 @@ function build_crontab() {
             echo ""
             echo "# Clean up temp files"
             echo "rm -f \"\${STDOUT_FILE}\" \"\${STDERR_FILE}\""
-        }  > "${SCRIPT_PATH}"
+        } > "${SCRIPT_TMP}"
 
         TRIGGER=$(echo "${KEY}" | jq -r '.trigger')
         if [ "${TRIGGER}" != "null" ]; then
@@ -229,45 +257,84 @@ function build_crontab() {
                     continue
                 fi
 
-                make_cmd "${TRIGGER_KEY}" >> "${SCRIPT_PATH}"
+                make_cmd "${TRIGGER_KEY}" >> "${SCRIPT_TMP}"
             done < <(echo "${KEY}" | jq -r '.trigger | keys[]')
         fi
 
-        echo "echo \"end cron job __${SCRIPT_NAME}__\"" >> "${SCRIPT_PATH}"
+        echo "echo \"\$(date '+%Y-%m-%d %H:%M:%S') [end] ${SCRIPT_NAME}\"" >> "${SCRIPT_TMP}"
+
+        mv "${SCRIPT_TMP}" "${SCRIPT_PATH}"
+        trap - EXIT
+        chmod +x "${SCRIPT_PATH}"
 
         if [ "${COMMENT}" != "null" ]; then
             echo "# ${COMMENT}" >> "${CRONTAB_FILE}"
         fi
-        # Redirect job output to container's stdout (fd/1) and stderr (fd/2)
-        echo "${SCHEDULE} ${SCRIPT_PATH} >> /proc/1/fd/1 2>> /proc/1/fd/2" >> "${CRONTAB_FILE}"
+        # Redirect job output to container's stdout/stderr via PID 1's file descriptors
+        # This ensures output appears in docker logs (BusyBox crond swallows pipe output)
+        echo "${SCHEDULE} ${SCRIPT_PATH} > /proc/1/fd/1 2>/proc/1/fd/2" >> "${CRONTAB_FILE}"
+
+        JOB_NAMES+=("${SCRIPT_NAME}")
+        JOB_SCHEDULES+=("${SCHEDULE}")
 
         ONSTART_COMMAND=$(echo "${KEY}" | jq -r '.onstart')
         if [ "${ONSTART_COMMAND}" == "true" ]; then
             ONSTART+=("${SCRIPT_PATH}")
+            JOB_ONSTART_FLAGS+=("yes")
+        else
+            JOB_ONSTART_FLAGS+=("")
         fi
     done < <(jq -r '. | keys[]' "${CONFIG}")
 
-    printf "##### crontab generated #####\n"
-    cat "${CRONTAB_FILE}"
+    # Ensure crontab file exists even if no valid jobs were found
+    touch "${CRONTAB_FILE}"
+
+    # Print job summary table
+    local job_count=${#JOB_NAMES[@]}
+    printf "\n"
+    printf "┌─────────────────┬─────────────────────────────────────┬─────────┐\n"
+    printf "│ %-15s │ %-35s │ %-7s │\n" "Schedule" "Job" "Onstart"
+    printf "├─────────────────┼─────────────────────────────────────┼─────────┤\n"
+    for (( idx=0; idx<job_count; idx++ )); do
+        local name="${JOB_NAMES[$idx]}"
+        # Truncate long names
+        if [ ${#name} -gt 35 ]; then
+            name="${name:0:32}..."
+        fi
+        printf "│ %-15s │ %-35s │ %-7s │\n" "${JOB_SCHEDULES[$idx]}" "${name}" "${JOB_ONSTART_FLAGS[$idx]}"
+    done
+    printf "└─────────────────┴─────────────────────────────────────┴─────────┘\n"
+    printf "  %d job(s) scheduled\n\n" "${job_count}"
 
     # Copy crontab file to a directory owned by docker user
     # BusyBox crond expects files in the crontabs directory to be named after the user
     CRONTABS_DIR="${HOME_DIR}/crontabs"
     mkdir -p "${CRONTABS_DIR}"
     cp "${CRONTAB_FILE}" "${CRONTABS_DIR}/docker"
+    rm -f "${CRONTAB_FILE}"
+    chmod 700 "${CRONTABS_DIR}"
     chmod 600 "${CRONTABS_DIR}/docker"
     # Ensure ownership is correct
     if [ "$(id -u)" = "0" ]; then
         chown docker:docker "${CRONTABS_DIR}" "${CRONTABS_DIR}/docker"
     fi
 
-    printf "##### run commands with onstart #####\n"
+    if [ ${#ONSTART[@]} -gt 0 ]; then
+        printf "Running %d onstart job(s)...\n" "${#ONSTART[@]}"
+    fi
+    ONSTART_PIDS=()
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
-        printf "%s\n" "${ONSTART_COMMAND}"
-        ${ONSTART_COMMAND} >> /proc/1/fd/1 2>> /proc/1/fd/2 &
+        printf "  → %s\n" "$(basename "${ONSTART_COMMAND}" .sh)"
+        "${ONSTART_COMMAND}" > /proc/1/fd/1 2>/proc/1/fd/2 &
+        ONSTART_PIDS+=($!)
+    done
+    for pid in "${ONSTART_PIDS[@]}"; do
+        if ! wait "$pid"; then
+            echo "Warning: onstart job (PID $pid) exited with non-zero status" >&2
+        fi
     done
 
-    printf "##### cron running #####\n"
+    printf "Cron daemon starting...\n"
 }
 
 init_webapp() {
@@ -306,14 +373,8 @@ start_app() {
     # Filter out invalid crond flags
     # BusyBox crond doesn't support -s flag
     local filtered_args=()
-    local skip_next=false
 
     for arg in "$@"; do
-        if [ "$skip_next" = true ]; then
-            skip_next=false
-            continue
-        fi
-
         # Skip -s flag if it appears (was used in previous versions but not supported by BusyBox)
         if [ "$arg" = "-s" ]; then
             echo "Warning: Skipping unsupported -s flag for BusyBox crond"

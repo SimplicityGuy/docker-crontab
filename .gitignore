@@ -11,3 +11,4 @@ projects/
 
 # Backup files created by update script
 *.backup-*
+backups/

@@ -1,4 +1,4 @@
-# toml files can only have top-loevl mappings, so this is the only sample
+# toml files can only have top-level mappings, so this is the only sample
 ["cron with triggered commands"]
 comment = "cron with triggered commands"
 schedule = "* * * * *"
@@ -14,25 +14,25 @@ comment = "map a volume"
 schedule = "* * * * *"
 dockerargs = "-d -v /tmp:/tmp"
 command = "echo new"
-image = "alpine:3.5"
+image = "alpine:3.23"
 
 ["use an ENV from inside a container"]
 comment = "use an ENV from inside a container"
 schedule = "@hourly"
 dockerargs = "-d -e FOO=BAR"
 command = "sh -c 'echo hourly ${FOO}'"
-image = "alpine:3.5"
+image = "alpine:3.23"
 
 ["trigger every 2 min"]
 comment = "trigger every 2 min"
-schedule = "@every 2m"
+schedule = "*/2 * * * *"
 command = "echo 2 minute"
-image = "alpine:3.5"
+image = "alpine:3.23"
 [["trigger every 2 min".trigger]]
 command = "echo world"
 container = "crontab_myapp_1"
 
-["? /usr/sbin/logrotate /etc/logrotate.conf*/5 * * * *"]
+["logrotate"]
 schedule = "*/5 * * * *"
 command = "/usr/sbin/logrotate /etc/logrotate.conf"
 
@@ -40,7 +40,7 @@ command = "/usr/sbin/logrotate /etc/logrotate.conf"
 comment = "Regenerate Certificate then reload nginx"
 schedule = "43 6,18 * * *"
 command = "sh -c 'dehydrated --cron --out /etc/ssl --domain ${LE_DOMAIN} --challenge dns-01 --hook dehydrated-dns'"
-dockerargs = "--env-file /opt/crontab/env/letsencrypt.env -v ${PWD}:/etc/ssl -v webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"
+dockerargs = "--env-file /opt/crontab/env/letsencrypt.env -v webapp_nginx_tls_cert:/etc/ssl -v webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"
 image = "willfarrell/letsencrypt"
 onstart = true
 [["Regenerate Certificate then reload nginx".trigger]]

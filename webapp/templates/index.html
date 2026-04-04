@@ -1,93 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Docker Crontab Dashboard</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Spinner animation */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        /* Fade in */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        /* Pulse dot */
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+    </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <h1>🕐 Docker Crontab Dashboard</h1>
-            <div id="stats-bar">
-                <div class="stat-item">
-                    <span class="stat-label">Total Jobs</span>
-                    <span class="stat-value" id="total-jobs">0</span>
+<body class="h-full bg-gray-50 font-sans text-gray-900 antialiased">
+    <div id="app" class="min-h-full flex flex-col">
+
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-9 h-9 bg-indigo-600 rounded-lg">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-gray-900 leading-tight">Docker Crontab</h1>
+                            <p class="text-xs text-gray-500 leading-tight">Job Scheduler Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div id="health-indicator" class="flex items-center gap-1.5 text-xs text-gray-400">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-pulse-dot absolute inline-flex h-full w-full rounded-full bg-gray-300"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-gray-300"></span>
+                            </span>
+                            <span>Connecting...</span>
+                        </div>
+                        <button id="refresh-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors" title="Refresh">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Active</span>
-                    <span class="stat-value" id="active-jobs">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Recent Failures</span>
-                    <span class="stat-value" id="recent-failures">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Last 24h Executions</span>
-                    <span class="stat-value" id="last-24h-executions">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Auto-Refresh</span>
-                    <span class="stat-value" id="refresh-status">30s</span>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Jobs</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900" id="total-jobs">--</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Active</p>
+                        <p class="mt-1 text-2xl font-bold text-emerald-600" id="active-jobs">--</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Failures (24h)</p>
+                        <p class="mt-1 text-2xl font-bold text-red-600" id="recent-failures">--</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Runs (24h)</p>
+                        <p class="mt-1 text-2xl font-bold text-indigo-600" id="last-24h-executions">--</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </header>
 
-    <main class="container">
-        <section id="jobs-list">
-            <div class="section-header">
-                <h2>Scheduled Jobs</h2>
-                <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
-            </div>
-            <div id="jobs-container">
-                <div class="loading">Loading jobs...</div>
-            </div>
-        </section>
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
 
-        <section id="execution-history" class="hidden">
-            <div class="section-header">
-                <h2>Execution History: <span id="current-job-name"></span></h2>
-                <button id="back-to-jobs" class="btn btn-secondary">← Back to Jobs</button>
-            </div>
-            <div id="history-container">
-                <div class="loading">Loading history...</div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Log Viewer Modal -->
-    <div id="log-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Job Execution Logs</h3>
-                <button id="close-modal" class="btn-close">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="log-info">
-                    <div><strong>Job:</strong> <span id="log-job-name"></span></div>
-                    <div><strong>Started:</strong> <span id="log-start-time"></span></div>
-                    <div><strong>Duration:</strong> <span id="log-duration"></span></div>
-                    <div><strong>Exit Code:</strong> <span id="log-exit-code"></span></div>
+            <!-- Jobs List View -->
+            <section id="jobs-list">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-xl font-bold text-gray-900">Scheduled Jobs</h2>
+                    <p class="text-sm text-gray-500">Auto-refreshes every 30s</p>
                 </div>
-                <div class="log-tabs">
-                    <button class="tab-btn active" data-tab="stdout">STDOUT</button>
-                    <button class="tab-btn" data-tab="stderr">STDERR</button>
+                <div id="jobs-container">
+                    <div class="flex items-center justify-center py-16 text-gray-400">
+                        <svg class="animate-spin w-6 h-6 mr-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Loading jobs...
+                    </div>
                 </div>
-                <div class="log-content">
-                    <pre id="log-stdout" class="log-pane active"></pre>
-                    <pre id="log-stderr" class="log-pane hidden"></pre>
+            </section>
+
+            <!-- Execution History View (hidden by default) -->
+            <section id="execution-history" class="hidden">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <button id="back-to-jobs" class="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                            Back
+                        </button>
+                        <div class="h-5 w-px bg-gray-300"></div>
+                        <h2 class="text-xl font-bold text-gray-900">History: <span id="current-job-name" class="text-indigo-600"></span></h2>
+                    </div>
+                </div>
+                <div id="history-container">
+                    <div class="flex items-center justify-center py-16 text-gray-400">
+                        <svg class="animate-spin w-6 h-6 mr-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Loading history...
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Log Viewer Modal -->
+        <div id="log-modal" class="hidden fixed inset-0 z-50">
+            <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" id="modal-backdrop"></div>
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-fade-in">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900">Execution Logs</h3>
+                        <button id="close-modal" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto px-6 py-4">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs font-medium text-gray-500">Job</p>
+                                <p class="text-sm font-semibold text-gray-900 truncate" id="log-job-name"></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs font-medium text-gray-500">Started</p>
+                                <p class="text-sm font-semibold text-gray-900" id="log-start-time"></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs font-medium text-gray-500">Duration</p>
+                                <p class="text-sm font-semibold text-gray-900" id="log-duration"></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs font-medium text-gray-500">Exit Code</p>
+                                <p class="text-sm font-semibold text-gray-900" id="log-exit-code"></p>
+                            </div>
+                        </div>
+                        <div class="flex gap-1 border-b border-gray-200 mb-4">
+                            <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors text-indigo-600 border-indigo-600" data-tab="stdout">STDOUT</button>
+                            <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-700" data-tab="stderr">STDERR</button>
+                        </div>
+                        <div>
+                            <pre id="log-stdout" class="log-pane bg-gray-900 text-gray-300 text-sm font-mono rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-words min-h-[200px]"></pre>
+                            <pre id="log-stderr" class="log-pane hidden bg-gray-900 text-gray-300 text-sm font-mono rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-words min-h-[200px]"></pre>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-gray-400">
+                <span>Docker Crontab Web UI</span>
+                <a href="/api/health" target="_blank" class="text-indigo-500 hover:text-indigo-700 transition-colors">Health Check</a>
+            </div>
+        </footer>
+
     </div>
-
-    <footer>
-        <div class="container">
-            <p>Docker Crontab Web UI v1.0 | <a href="/api/health" target="_blank">Health Check</a></p>
-        </div>
-    </footer>
 
     <script src="/static/js/app.js"></script>
 </body>
