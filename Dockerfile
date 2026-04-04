@@ -46,7 +46,7 @@ RUN apk update --quiet && \
     tar -xvf "rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" && \
     upx --brute rq
 
-FROM docker:29.1.3-dind-alpine3.23 AS release
+FROM docker:29.3.1-dind-alpine3.23 AS release
 
 LABEL org.opencontainers.image.title="crontab" \
       org.opencontainers.image.description="A docker job scheduler (aka crontab for docker)." \
