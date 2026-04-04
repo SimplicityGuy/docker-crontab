@@ -34,7 +34,7 @@ The config file can be specified in any of `json`, `toml`, or `yaml`, and can be
 
 - `name`: Human readable name that will be used as the job filename. Will be converted into a slug. Optional.
 - `comment`: Comments to be included with crontab entry. Optional.
-- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Required. Supported shortcuts: `@yearly`/`@annually`, `@monthly`, `@weekly`, `@daily`/`@midnight`, `@hourly`, `@random @m @h @d`. Examples: `@hourly`, `@daily`, `*/5 * * * *`.
+- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Required. Supported shortcuts: `@hourly`, `@daily`/`@midnight`, `@weekly`, `@monthly`, `@yearly`/`@annually`, `@random @m @h @d`. Examples: `@hourly`, `@daily`, `*/5 * * * *`.
 - `command`: Command to be run in crontab container or docker container/image. Required.
 - `image`: Docker image name (e.g. `library/alpine:3.23`). Optional.
 - `container`: Full container name. Ignored if `image` is included. Optional.

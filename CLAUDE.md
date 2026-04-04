@@ -33,7 +33,7 @@ This is `docker-crontab`, a Docker-based cron job scheduler that allows running 
 - Config can be array or mapping (top-level keys ignored for organization)
 - Special `~~shared-settings` key for shared configuration
 - Key fields: `schedule`, `command`, `image`/`container`, `dockerargs`, `trigger`, `onstart`
-- Schedule supports standard crontab syntax plus shortcuts (@hourly, @daily, @yearly, @monthly, @weekly, @midnight, @random)
+- Schedule supports standard crontab syntax plus shortcuts (@hourly, @daily/@midnight, @weekly, @monthly, @yearly/@annually, @random)
 - Additional fields: `comment`, `name`, `environment`, `expose`, `networks`, `ports`, `volumes`
 
 ### Job Execution Flow
