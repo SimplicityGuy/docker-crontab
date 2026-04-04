@@ -215,7 +215,7 @@ function build_crontab() {
             echo '#!/usr/bin/env bash'
             echo "set -e"
             echo ""
-            echo "echo \"start cron job __${SCRIPT_NAME}__\""
+            echo "echo \"\$(date '+%Y-%m-%d %H:%M:%S') [start] ${SCRIPT_NAME}\""
             echo "${CRON_COMMAND}"
         } > "${SCRIPT_TMP}"
 
@@ -233,7 +233,7 @@ function build_crontab() {
             done < <(echo "${KEY}" | jq -r '.trigger | keys[]')
         fi
 
-        echo "echo \"end cron job __${SCRIPT_NAME}__\"" >> "${SCRIPT_TMP}"
+        echo "echo \"\$(date '+%Y-%m-%d %H:%M:%S') [end] ${SCRIPT_NAME}\"" >> "${SCRIPT_TMP}"
 
         mv "${SCRIPT_TMP}" "${SCRIPT_PATH}"
         trap - EXIT
@@ -242,8 +242,9 @@ function build_crontab() {
         if [ "${COMMENT}" != "null" ]; then
             echo "# ${COMMENT}" >> "${CRONTAB_FILE}"
         fi
-        # Redirect job output to container's stdout and stderr
-        echo "${SCHEDULE} ${SCRIPT_PATH} 2>&1 | cat" >> "${CRONTAB_FILE}"
+        # Redirect job output to container's stdout/stderr via PID 1's file descriptors
+        # This ensures output appears in docker logs (BusyBox crond swallows pipe output)
+        echo "${SCHEDULE} ${SCRIPT_PATH} > /proc/1/fd/1 2>/proc/1/fd/2" >> "${CRONTAB_FILE}"
 
         ONSTART_COMMAND=$(echo "${KEY}" | jq -r '.onstart')
         if [ "${ONSTART_COMMAND}" == "true" ]; then
