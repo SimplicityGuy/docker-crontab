@@ -10,13 +10,13 @@ cron with triggered commands:
 map a volume:
   command: echo new
   comment: map a volume
-  dockerargs: -v /tmp:/tmp
+  dockerargs: -d -v /tmp:/tmp
   image: alpine:3.21
   schedule: '* * * * *'
 use an ENV from inside a container:
   command: sh -c 'echo hourly ${FOO}'
   comment: use an ENV from inside a container
-  dockerargs: -e FOO=BAR
+  dockerargs: -d -e FOO=BAR
   image: alpine:3.21
   schedule: '@hourly'
 trigger every 2 min:

@@ -15,14 +15,14 @@
   {
     "comment": "map a volume",
     "schedule": "* * * * *",
-    "dockerargs": "-v /tmp:/tmp",
+    "dockerargs": "-d -v /tmp:/tmp",
     "command": "echo new",
     "image": "alpine:3.21"
   },
   {
     "comment": "use an ENV from inside a container",
     "schedule": "@hourly",
-    "dockerargs": "-e FOO=BAR",
+    "dockerargs": "-d -e FOO=BAR",
     "command": "sh -c 'echo hourly ${FOO}'",
     "image": "alpine:3.21"
   },

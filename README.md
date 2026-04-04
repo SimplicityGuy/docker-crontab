@@ -44,7 +44,7 @@ See [`config-samples`](config-samples) for examples.
         "comment":"Regenerate Certificate then reload nginx",
         "schedule":"43 6,18 * * *",
         "command":"sh -c 'dehydrated --cron --out /etc/ssl --domain ${LE_DOMAIN} --challenge dns-01 --hook dehydrated-dns'",
-        "dockerargs":"--env-file /opt/crontab/env/letsencrypt.env",
+        "dockerargs":"--it --env-file /opt/crontab/env/letsencrypt.env",
         "volumes":["webapp_nginx_tls_cert:/etc/ssl", "webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"],
         "image":"willfarrell/letsencrypt",
         "trigger":[{
