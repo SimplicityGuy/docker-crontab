@@ -21,9 +21,14 @@ updates:
       actions:
         patterns:
           - "*"
+      # Security updates get their own group for immediate attention
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # Docker base images
-  # Monitors Dockerfile for base image updates (docker:dind-alpine)
+  # Monitors Dockerfile for base image updates (alpine, docker:dind-alpine)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -41,5 +46,10 @@ updates:
       - "SimplicityGuy"
     groups:
       docker-images:
+        patterns:
+          - "*"
+      # Security updates get their own group for immediate attention
+      docker-security:
+        applies-to: security-updates
         patterns:
           - "*"

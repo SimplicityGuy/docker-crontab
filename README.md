@@ -26,7 +26,7 @@ The config file can be specified in any of `json`, `toml`, or `yaml`, and can be
 - `comment`: Comments to be included with crontab entry. Optional.
 - `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Examples: `@hourly`, `@every 1h30m`, `* * * * *`. Required.
 - `command`: Command to be run on in crontab container or docker container/image. Required.
-- `image`: Docker images name (ex `library/alpine:3.5`). Optional.
+- `image`: Docker images name (ex `library/alpine:3.21`). Optional.
 - `container`: Full container name. Ignored if `image` is included. Optional.
 - `dockerargs`: Command line docker `run`/`exec` arguments for full control. Defaults to ` `.
 - `trigger`: Array of docker-crontab subset objects. Sub-set includes: `image`, `container`, `command`, `dockerargs`
