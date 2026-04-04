@@ -28,6 +28,7 @@ RUN apk update --quiet && \
         upx && \
     rm /var/cache/apk/* && \
     # Map Docker platform to rq release platform
+    # SHA256 checksums computed offline from GitHub release artifacts (rq does not publish checksums)
     case "${TARGETPLATFORM}" in \
         "linux/amd64") \
             RQ_PLATFORM="x86_64-unknown-linux-musl" && \
