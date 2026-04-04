@@ -37,11 +37,11 @@ normalize_config() {
     if [ -f "${HOME_DIR}/config.json" ]; then
         JSON_CONFIG="$(cat "${HOME_DIR}"/config.json)"
     elif [ -f "${HOME_DIR}/config.toml" ]; then
-        JSON_CONFIG="$(rq -t <<< "$(cat "${HOME_DIR}"/config.toml)")"
+        JSON_CONFIG="$(yq -p toml -o json < "${HOME_DIR}/config.toml")"
     elif [ -f "${HOME_DIR}/config.yml" ]; then
-        JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yml)")"
+        JSON_CONFIG="$(yq -o json < "${HOME_DIR}/config.yml")"
     elif [ -f "${HOME_DIR}/config.yaml" ]; then
-        JSON_CONFIG="$(rq -y <<< "$(cat "${HOME_DIR}"/config.yaml)")"
+        JSON_CONFIG="$(yq -o json < "${HOME_DIR}/config.yaml")"
     else
         echo "Warning: No config file found in ${HOME_DIR}. Checked config.json, config.toml, config.yml, config.yaml"
     fi

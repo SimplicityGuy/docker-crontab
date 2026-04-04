@@ -4,7 +4,6 @@
 #
 # This script provides a safe and comprehensive way to update:
 # - Docker base images in Dockerfile (Alpine, Docker dind)
-# - rq binary version
 # - GitHub Actions versions in all workflow files
 # - Pre-commit hooks to latest versions (with frozen revs)
 #
@@ -230,27 +229,6 @@ update_dockerfile() {
     print_success "Docker is up to date: $current_docker"
   fi
 
-  # Update RQ version
-  local current_rq
-  current_rq=$(grep 'ENV RQ_VERSION=' "$dockerfile" | sed -E 's/.*ENV RQ_VERSION=([^ ]+).*/\1/')
-  local latest_rq
-  latest_rq=$(get_latest_rq_version)
-
-  if [[ -n "$latest_rq" ]] && [[ "$current_rq" != "$latest_rq" ]]; then
-    print_info "rq: $current_rq → $latest_rq"
-    update_in_file "$dockerfile" "ENV RQ_VERSION=${current_rq}" "ENV RQ_VERSION=${latest_rq}" "rq version"
-    add_to_summary "rq: $current_rq → $latest_rq"
-  else
-    print_success "rq is up to date: $current_rq"
-  fi
-}
-
-# ─── rq binary ───────────────────────────────────────────────────────────────
-
-get_latest_rq_version() {
-  curl -s "https://api.github.com/repos/dflemstr/rq/releases/latest" | \
-    jq -r '.tag_name' | \
-    sed 's/^v//'
 }
 
 # ─── GitHub Actions ──────────────────────────────────────────────────────────

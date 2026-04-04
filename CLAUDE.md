@@ -10,16 +10,15 @@ This is `docker-crontab`, a Docker-based cron job scheduler that allows running 
 
 ### Core Components
 
-- **Dockerfile**: Multi-stage build using Alpine Linux base with Docker-in-Docker capability
+- **Dockerfile**: Single-stage build using Docker-in-Docker Alpine base
 
-  - Builder stage: Downloads and compresses `rq` tool for config parsing
-  - Release stage: Based on `docker:dind-alpine` with cron and Docker client
+  - Based on `docker:dind-alpine` with cron and Docker client
   - Uses `su-exec` for proper user privilege handling
   - Configurable Docker group ID via `DOCKER_GID` build arg (default: 999)
 
 - **entrypoint.sh**: Main orchestration script that:
 
-  - Normalizes config files (JSON/YAML/TOML) using `rq` and `jq`
+  - Normalizes config files (JSON/YAML/TOML) using `yq` and `jq`
   - Processes shared settings via `~~shared-settings` key
   - Generates crontab entries and executable scripts
   - Installs crontab files in user-writable directory (`/opt/crontab/crontabs`)
