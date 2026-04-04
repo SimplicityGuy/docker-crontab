@@ -167,6 +167,9 @@ function build_crontab() {
     rm -rf "${CRONTAB_FILE}"
 
     ONSTART=()
+    JOB_NAMES=()
+    JOB_SCHEDULES=()
+    JOB_ONSTART_FLAGS=()
     while read -r i ; do
         KEY=$(jq -r .["$i"] "${CONFIG}")
 
@@ -246,17 +249,37 @@ function build_crontab() {
         # This ensures output appears in docker logs (BusyBox crond swallows pipe output)
         echo "${SCHEDULE} ${SCRIPT_PATH} > /proc/1/fd/1 2>/proc/1/fd/2" >> "${CRONTAB_FILE}"
 
+        JOB_NAMES+=("${SCRIPT_NAME}")
+        JOB_SCHEDULES+=("${SCHEDULE}")
+
         ONSTART_COMMAND=$(echo "${KEY}" | jq -r '.onstart')
         if [ "${ONSTART_COMMAND}" == "true" ]; then
             ONSTART+=("${SCRIPT_PATH}")
+            JOB_ONSTART_FLAGS+=("yes")
+        else
+            JOB_ONSTART_FLAGS+=("")
         fi
     done < <(jq -r '. | keys[]' "${CONFIG}")
 
     # Ensure crontab file exists even if no valid jobs were found
     touch "${CRONTAB_FILE}"
 
-    printf "##### crontab generated #####\n"
-    cat "${CRONTAB_FILE}"
+    # Print job summary table
+    local job_count=${#JOB_NAMES[@]}
+    printf "\n"
+    printf "┌─────────────────┬─────────────────────────────────────┬─────────┐\n"
+    printf "│ %-15s │ %-35s │ %-7s │\n" "Schedule" "Job" "Onstart"
+    printf "├─────────────────┼─────────────────────────────────────┼─────────┤\n"
+    for (( idx=0; idx<job_count; idx++ )); do
+        local name="${JOB_NAMES[$idx]}"
+        # Truncate long names
+        if [ ${#name} -gt 35 ]; then
+            name="${name:0:32}..."
+        fi
+        printf "│ %-15s │ %-35s │ %-7s │\n" "${JOB_SCHEDULES[$idx]}" "${name}" "${JOB_ONSTART_FLAGS[$idx]}"
+    done
+    printf "└─────────────────┴─────────────────────────────────────┴─────────┘\n"
+    printf "  %d job(s) scheduled\n\n" "${job_count}"
 
     # Copy crontab file to a directory owned by docker user
     # BusyBox crond expects files in the crontabs directory to be named after the user
@@ -271,11 +294,13 @@ function build_crontab() {
         chown docker:docker "${CRONTABS_DIR}" "${CRONTABS_DIR}/docker"
     fi
 
-    printf "##### run commands with onstart #####\n"
+    if [ ${#ONSTART[@]} -gt 0 ]; then
+        printf "Running %d onstart job(s)...\n" "${#ONSTART[@]}"
+    fi
     ONSTART_PIDS=()
     for ONSTART_COMMAND in "${ONSTART[@]}"; do
-        printf "%s\n" "${ONSTART_COMMAND}"
-        "${ONSTART_COMMAND}" 2>&1 &
+        printf "  → %s\n" "$(basename "${ONSTART_COMMAND}" .sh)"
+        "${ONSTART_COMMAND}" > /proc/1/fd/1 2>/proc/1/fd/2 &
         ONSTART_PIDS+=($!)
     done
     for pid in "${ONSTART_PIDS[@]}"; do
@@ -284,7 +309,7 @@ function build_crontab() {
         fi
     done
 
-    printf "##### cron running #####\n"
+    printf "Cron daemon starting...\n"
 }
 
 start_app() {
