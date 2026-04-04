@@ -19,6 +19,8 @@ ARG TARGETVARIANT
 ENV RQ_VERSION=1.0.2
 WORKDIR /usr/bin/rq/
 
+SHELL ["/bin/ash", "-o", "pipefail", "-c"]
+
 #hadolint ignore=DL3018
 RUN apk update --quiet && \
     apk upgrade --quiet && \
@@ -28,23 +30,29 @@ RUN apk update --quiet && \
     # Map Docker platform to rq release platform
     case "${TARGETPLATFORM}" in \
         "linux/amd64") \
-            RQ_PLATFORM="x86_64-unknown-linux-musl" \
+            RQ_PLATFORM="x86_64-unknown-linux-musl" && \
+            RQ_SHA256="7b35f0b7399b874bbffcdcbb2a374843138318c806019d1a0bae7be2d23d31a4" \
             ;; \
         "linux/arm64") \
-            RQ_PLATFORM="aarch64-unknown-linux-gnu" \
+            RQ_PLATFORM="aarch64-unknown-linux-gnu" && \
+            RQ_SHA256="d56aeea8ac5dae436279696799b18ddfae5d6c51ac21e40e20c8ca9f4abd8b4f" \
             ;; \
         "linux/arm/v7") \
-            RQ_PLATFORM="armv7-unknown-linux-gnueabihf" \
+            RQ_PLATFORM="armv7-unknown-linux-gnueabihf" && \
+            RQ_SHA256="de59ee0b2c514fd902fa29ff8d5297bdc731a986ef09e2d3cfd095ce548e67c0" \
             ;; \
         "linux/arm/v6") \
-            RQ_PLATFORM="arm-unknown-linux-gnueabi" \
+            RQ_PLATFORM="arm-unknown-linux-gnueabi" && \
+            RQ_SHA256="e7aa94606be95d6b04bf822343778e2deb6952addd99b5585e689add7f2e21bf" \
             ;; \
         *) \
             echo "Warning: Unknown platform ${TARGETPLATFORM}, defaulting to x86_64-unknown-linux-musl" && \
-            RQ_PLATFORM="x86_64-unknown-linux-musl" \
+            RQ_PLATFORM="x86_64-unknown-linux-musl" && \
+            RQ_SHA256="7b35f0b7399b874bbffcdcbb2a374843138318c806019d1a0bae7be2d23d31a4" \
             ;; \
     esac && \
     wget --quiet "https://github.com/dflemstr/rq/releases/download/v${RQ_VERSION}/rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" && \
+    echo "${RQ_SHA256}  rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" | sha256sum -c - && \
     tar -xvf "rq-v${RQ_VERSION}-${RQ_PLATFORM}.tar.gz" && \
     upx --brute rq
 
