@@ -10,14 +10,14 @@
   "map a volume": {
     "comment": "map a volume",
     "schedule": "* * * * *",
-    "dockerargs": "-d -v /tmp:/tmp",
+    "dockerargs": "-v /tmp:/tmp",
     "command": "echo new",
     "image": "alpine:3.21"
   },
   "use an ENV from inside a container": {
     "comment": "use an ENV from inside a container",
     "schedule": "@hourly",
-    "dockerargs": "-d -e FOO=BAR",
+    "dockerargs": "-e FOO=BAR",
     "command": "sh -c 'echo hourly ${FOO}'",
     "image": "alpine:3.21"
   },
@@ -28,7 +28,7 @@
     "image": "alpine:3.21",
     "trigger": [{ "command": "echo world", "container": "crontab_myapp_1" }]
   },
-  "null": {
+  "logrotate": {
     "schedule": "*/5 * * * *",
     "command": "/usr/sbin/logrotate /etc/logrotate.conf"
   },

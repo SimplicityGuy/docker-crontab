@@ -5,6 +5,8 @@ services:
     command: "sh -c 'while :; do sleep 1; done'"
 
   crontab:
+    depends_on:
+      - myapp
     build:
       context: .
       args:

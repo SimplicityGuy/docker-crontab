@@ -47,7 +47,7 @@ normalize_config() {
     fi
 
     jq -S -r 'if type == "array" then .
-    else (."~~shared-settings" // {}) as $shared | del(."~~shared-settings") | to_entries | map_values(.value + { name: .key } + $shared)
+    else (."~~shared-settings" // {}) as $shared | del(."~~shared-settings") | to_entries | map_values($shared + .value + { name: .key })
     end' <<< "${JSON_CONFIG}" > "${HOME_DIR}"/config.working.json
 }
 
@@ -81,6 +81,7 @@ make_image_cmd() {
     if [ "${IMAGE}" == "null" ]; then return; fi
 
     COMMAND=$(echo "${1}" | jq -r .command)
+    if [ "${COMMAND}" == "null" ]; then return; fi
 
     echo "docker run ${DOCKERARGS} \"${IMAGE}\" ${COMMAND}"
 }
@@ -174,7 +175,10 @@ function build_crontab() {
             echo "'schedule' missing: '${KEY}"
             continue
         fi
-        SCHEDULE=$(parse_schedule "${SCHEDULE}")
+        if ! SCHEDULE=$(parse_schedule "${SCHEDULE}"); then
+            echo "Skipping job: unsupported schedule"
+            continue
+        fi
 
         COMMAND=$(echo "${KEY}" | jq -r '.command')
         if [ "${COMMAND}" == "null" ]; then
@@ -206,8 +210,9 @@ function build_crontab() {
 
         # Build script content in temp file, then move atomically
         SCRIPT_TMP=$(mktemp)
+        trap 'rm -f "${SCRIPT_TMP}"' EXIT
         {
-            echo "#\!/usr/bin/env bash"
+            echo '#!/usr/bin/env bash'
             echo "set -e"
             echo ""
             echo "echo \"start cron job __${SCRIPT_NAME}__\""
@@ -231,6 +236,7 @@ function build_crontab() {
         echo "echo \"end cron job __${SCRIPT_NAME}__\"" >> "${SCRIPT_TMP}"
 
         mv "${SCRIPT_TMP}" "${SCRIPT_PATH}"
+        trap - EXIT
         chmod +x "${SCRIPT_PATH}"
 
         if [ "${COMMENT}" != "null" ]; then
@@ -253,6 +259,7 @@ function build_crontab() {
     CRONTABS_DIR="${HOME_DIR}/crontabs"
     mkdir -p "${CRONTABS_DIR}"
     cp "${CRONTAB_FILE}" "${CRONTABS_DIR}/docker"
+    rm -f "${CRONTAB_FILE}"
     chmod 700 "${CRONTABS_DIR}"
     chmod 600 "${CRONTABS_DIR}/docker"
     # Ensure ownership is correct

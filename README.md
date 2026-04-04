@@ -24,7 +24,7 @@ The config file can be specified in any of `json`, `toml`, or `yaml`, and can be
 
 - `name`: Human readable name that will be used as the job filename. Will be converted into a slug. Optional.
 - `comment`: Comments to be included with crontab entry. Optional.
-- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Examples: `@hourly`, `@every 1h30m`, `* * * * *`. Required.
+- `schedule`: Crontab schedule syntax as described in https://en.wikipedia.org/wiki/Cron. Examples: `@hourly`, `@daily`, `*/5 * * * *`. Required.
 - `command`: Command to be run on in crontab container or docker container/image. Required.
 - `image`: Docker images name (ex `library/alpine:3.21`). Optional.
 - `container`: Full container name. Ignored if `image` is included. Optional.
@@ -37,14 +37,14 @@ See [`config-samples`](config-samples) for examples.
 ```json
 {
     "logrotate": {
-        "schedule":"@every 5m",
+        "schedule":"*/5 * * * *",
         "command":"/usr/sbin/logrotate /etc/logrotate.conf"
     },
     "cert-regen": {
         "comment":"Regenerate Certificate then reload nginx",
         "schedule":"43 6,18 * * *",
         "command":"sh -c 'dehydrated --cron --out /etc/ssl --domain ${LE_DOMAIN} --challenge dns-01 --hook dehydrated-dns'",
-        "dockerargs":"--it --env-file /opt/crontab/env/letsencrypt.env",
+        "dockerargs":"--env-file /opt/crontab/env/letsencrypt.env",
         "volumes":["webapp_nginx_tls_cert:/etc/ssl", "webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"],
         "image":"willfarrell/letsencrypt",
         "trigger":[{
@@ -123,7 +123,7 @@ docker run -d \
 ### Dockerfile
 
 ```Dockerfile
-FROM registry.gitlab.com/simplicityguy/docker/crontab
+FROM ghcr.io/simplicityguy/crontab
 
 COPY config.json ${HOME_DIR}/
 ```
