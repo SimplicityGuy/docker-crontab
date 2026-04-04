@@ -27,11 +27,14 @@ RUN apk update --quiet && \
         curl \
         gettext \
         jq \
+        py3-flask \
+        py3-supervisor \
+        python3 \
+        shadow \
         su-exec \
         tini \
         wget \
-        yq-go \
-        shadow && \
+        yq-go && \
     rm /var/cache/apk/* && \
     rm -rf /etc/periodic /etc/crontabs/root && \
     # Set SUID on crontab command so it can modify crontab files
@@ -46,10 +49,15 @@ RUN apk update --quiet && \
     (getent group | grep -q ":${DOCKER_GID}:" && addgroup docker || addgroup -g ${DOCKER_GID} docker) && \
     # Create docker user and add to docker group
     adduser -S docker -D -G docker && \
-    mkdir -p ${HOME_DIR}/jobs ${HOME_DIR}/crontabs && \
+    mkdir -p ${HOME_DIR}/jobs ${HOME_DIR}/crontabs ${HOME_DIR}/data && \
     chown -R docker:docker ${HOME_DIR}
 
 COPY entrypoint.sh /opt
+COPY supervisord.conf /opt/crontab/
+COPY webapp/ /opt/crontab/webapp/
+
+# Expose web UI port
+EXPOSE 8080
 
 ENTRYPOINT ["/sbin/tini", "--", "/opt/entrypoint.sh"]
 

@@ -57,6 +57,7 @@ jobs:
             - Docker base image (dind-alpine)
             - GitHub Actions versions
             - Pre-commit hook versions
+            - Web UI packages (py3-flask, py3-supervisor)
 
             ### Testing
             - Build test completed successfully

@@ -6,6 +6,7 @@
 # - Docker base images in Dockerfile (Alpine, Docker dind)
 # - GitHub Actions versions in all workflow files
 # - Pre-commit hooks to latest versions (with frozen revs)
+# - Web UI Alpine packages (py3-flask, py3-supervisor) in Dockerfile
 #
 # Usage: ./scripts/update-project.sh [options]
 #
@@ -302,6 +303,73 @@ update_precommit_hooks() {
   fi
 }
 
+# ─── Alpine Packages (Web UI) ────────────────────────────────────────────────
+
+get_latest_alpine_pkg_version() {
+  local pkg="$1"
+  local alpine_version="$2"
+  # Query Alpine package API for the latest version
+  local version
+  version=$(curl -s "https://pkgs.alpinelinux.org/package/v${alpine_version}/community/x86_64/${pkg}" | \
+    grep -oP 'Version</th>\s*<td[^>]*>\K[^<]+' | head -1 || echo "")
+  echo "$version"
+}
+
+update_webapp_packages() {
+  print_section "🐍" "Checking Web UI Packages"
+
+  local dockerfile="$PROJECT_ROOT/Dockerfile"
+
+  # Extract Alpine version from the FROM line (e.g., 3.23 from dind-alpine3.23)
+  local alpine_version
+  alpine_version=$(grep 'FROM docker:' "$dockerfile" | head -1 | sed -E 's/.*alpine([0-9.]+).*/\1/')
+
+  if [[ -z "$alpine_version" ]]; then
+    print_warning "Could not detect Alpine version from Dockerfile"
+    return
+  fi
+
+  print_info "Alpine version: $alpine_version"
+
+  # Verify required webapp packages are present in Dockerfile
+  local webapp_packages=("python3" "py3-flask" "py3-supervisor")
+  local missing_packages=()
+
+  for pkg in "${webapp_packages[@]}"; do
+    if ! grep -q "$pkg" "$dockerfile"; then
+      missing_packages+=("$pkg")
+    fi
+  done
+
+  if [[ ${#missing_packages[@]} -gt 0 ]]; then
+    print_warning "Missing webapp packages in Dockerfile: ${missing_packages[*]}"
+    print_warning "The web UI requires: ${webapp_packages[*]}"
+  else
+    print_success "All webapp packages present: ${webapp_packages[*]}"
+  fi
+
+  # Verify supervisord.conf exists
+  if [[ ! -f "$PROJECT_ROOT/supervisord.conf" ]]; then
+    print_warning "Missing supervisord.conf — required for web UI process management"
+  fi
+
+  # Verify webapp directory exists with required files
+  local webapp_files=("app.py" "models.py" "init_db.py" "sync_jobs.py" "db_logger.py" "cron_parser.py")
+  local missing_files=()
+
+  for f in "${webapp_files[@]}"; do
+    if [[ ! -f "$PROJECT_ROOT/webapp/$f" ]]; then
+      missing_files+=("$f")
+    fi
+  done
+
+  if [[ ${#missing_files[@]} -gt 0 ]]; then
+    print_warning "Missing webapp files: ${missing_files[*]}"
+  else
+    print_success "All webapp files present"
+  fi
+}
+
 # ─── Verification ────────────────────────────────────────────────────────────
 
 run_verification() {
@@ -383,6 +451,7 @@ main() {
   update_dockerfile
   update_github_actions
   update_precommit_hooks
+  update_webapp_packages
   run_verification
 
   # Print summary
