@@ -72,7 +72,7 @@ make_image_cmd() {
     DOCKERARGS+=" "
     if [ -n "${ENVIRONMENT}" ]; then DOCKERARGS+="${ENVIRONMENT} "; fi
     if [ -n "${EXPOSE}" ]; then DOCKERARGS+="${EXPOSE} "; fi
-    if [ -n "${NAME}" ]; then DOCKERARGS+="--name ${NAME} "; fi
+    if [ -n "${NAME}" ]; then DOCKERARGS+="--name \"${NAME}\" "; fi
     if [ -n "${NETWORKS}" ]; then DOCKERARGS+="${NETWORKS} "; fi
     if [ -n "${PORTS}" ]; then DOCKERARGS+="${PORTS} "; fi
     if [ -n "${VOLUMES}" ]; then DOCKERARGS+="${VOLUMES} "; fi
