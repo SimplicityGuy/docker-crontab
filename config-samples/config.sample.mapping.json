@@ -12,20 +12,20 @@
     "schedule": "* * * * *",
     "dockerargs": "-d -v /tmp:/tmp",
     "command": "echo new",
-    "image": "alpine:3.21"
+    "image": "alpine:3.23"
   },
   "use an ENV from inside a container": {
     "comment": "use an ENV from inside a container",
     "schedule": "@hourly",
     "dockerargs": "-d -e FOO=BAR",
     "command": "sh -c 'echo hourly ${FOO}'",
-    "image": "alpine:3.21"
+    "image": "alpine:3.23"
   },
   "trigger every 2 min": {
     "comment": "trigger every 2 min",
     "schedule": "*/2 * * * *",
     "command": "echo 2 minute",
-    "image": "alpine:3.21",
+    "image": "alpine:3.23",
     "trigger": [{ "command": "echo world", "container": "crontab_myapp_1" }]
   },
   "logrotate": {
