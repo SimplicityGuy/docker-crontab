@@ -44,7 +44,7 @@ See [`config-samples`](config-samples) for examples.
         "comment":"Regenerate Certificate then reload nginx",
         "schedule":"43 6,18 * * *",
         "command":"sh -c 'dehydrated --cron --out /etc/ssl --domain ${LE_DOMAIN} --challenge dns-01 --hook dehydrated-dns'",
-        "dockerargs":"--it --env-file /opt/crontab/env/letsencrypt.env",
+        "dockerargs":"-it --env-file /opt/crontab/env/letsencrypt.env",
         "volumes":["webapp_nginx_tls_cert:/etc/ssl", "webapp_nginx_acme_challenge:/var/www/.well-known/acme-challenge"],
         "image":"willfarrell/letsencrypt",
         "trigger":[{
@@ -118,7 +118,7 @@ docker run -d \
 1. Add `dockerargs` to your docker-crontab `config.json`
    - use `--network NETWORK_NAME` to connect new container into docker-compose network
    - use `--name NAME` to use named container
-   - e.g. `"dockerargs": "--it"`
+   - e.g. `"dockerargs": "-it"`
 
 ### Dockerfile
 
