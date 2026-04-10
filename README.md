@@ -1,5 +1,10 @@
 # crontab
 
+> [!WARNING]
+> **Project sunset notice**
+>
+> Active development on `docker-crontab` has ended. Work is now focused on its successor, [SimplicityGuy/cronduit](https://github.com/SimplicityGuy/cronduit) — please follow that repository for progress. Once `cronduit` reaches a stable release, this repository will be archived.
+
 <div align="center">
 
 [![Build](https://github.com/SimplicityGuy/docker-crontab/actions/workflows/build.yml/badge.svg)](https://github.com/SimplicityGuy/docker-crontab/actions/workflows/build.yml)
