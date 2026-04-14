@@ -3,6 +3,8 @@
 > [!WARNING]
 > **Project sunset notice**
 >
+> UPDATE: 2026.04.14: `cronduit` v1 is available. Please give it a try! File any issues that you encounter.
+>
 > Active development on `docker-crontab` has ended. Work is now focused on its successor, [SimplicityGuy/cronduit](https://github.com/SimplicityGuy/cronduit) — please follow that repository for progress. Once `cronduit` reaches a stable release, this repository will be archived.
 
 <div align="center">
